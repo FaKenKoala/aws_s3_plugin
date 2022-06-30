@@ -4,15 +4,15 @@ import 'package:aws_s3_platform_interface/method_channel/method_channel_aws_s3.d
 import 'package:aws_s3_platform_interface/types/credentials.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
-class AWSS3Platform extends PlatformInterface {
-  AWSS3Platform() : super(token: _token);
+class AwsS3Platform extends PlatformInterface {
+  AwsS3Platform() : super(token: _token);
 
   static final Object _token = Object();
 
-  static AWSS3Platform _instance = MethodChannelAWSS3();
-  AWSS3Platform get instance => _instance;
+  static AwsS3Platform _instance = MethodChannelAWSS3();
+  AwsS3Platform get instance => _instance;
 
-  set instance(AWSS3Platform instance) {
+  set instance(AwsS3Platform instance) {
     PlatformInterface.verifyToken(instance, _token);
     _instance = instance;
   }

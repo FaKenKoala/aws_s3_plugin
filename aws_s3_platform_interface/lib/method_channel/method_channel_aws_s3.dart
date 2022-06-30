@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 
 const MethodChannel _channel = MethodChannel('com.wombat/aws_s3_plugin');
 
-class MethodChannelAWSS3 extends AWSS3Platform {
+class MethodChannelAWSS3 extends AwsS3Platform {
   @visibleForTesting
   MethodChannel get channel => _channel;
 
