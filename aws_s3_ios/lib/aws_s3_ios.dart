@@ -2,19 +2,19 @@ import 'package:aws_s3_platform_interface/aws_s3_platform_interface.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
-const MethodChannel _channel = MethodChannel('com.wombat/aws_s3_android');
+const MethodChannel _channel = MethodChannel('com.wombat/aws_s3_ios');
 
-class AwsS3Android extends AwsS3Platform {
+class AwsS3IOS extends AwsS3Platform {
   @visibleForTesting
   MethodChannel get channel => _channel;
 
   static void registerWith() {
-    AwsS3Platform.instance = AwsS3Android();
+    AwsS3Platform.instance = AwsS3IOS();
   }
 
   @override
   Future<String> calculateMd5(String filePath) async {
-    print('调用android实现的');
+    print('调用iOS实现的');
     return (await _channel
         .invokeMethod('calculate_md5', {'filePath': filePath})) as String;
   }

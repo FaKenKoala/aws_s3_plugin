@@ -1,5 +1,3 @@
-import 'dart:html';
-
 import 'package:aws_s3_platform_interface/method_channel/method_channel_aws_s3.dart';
 import 'package:aws_s3_platform_interface/types/credentials.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';

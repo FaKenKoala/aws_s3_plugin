@@ -10,6 +10,8 @@ environment:
 dependencies:
   aws_s3_android:
     path: /Users/wombat/FlutterProjects/object_storage_service/aws_s3_plugin/aws_s3_android
+  aws_s3_ios:
+    path: /Users/wombat/FlutterProjects/object_storage_service/aws_s3_plugin/aws_s3_ios
   aws_s3_platform_interface:
     path: /Users/wombat/FlutterProjects/object_storage_service/aws_s3_plugin/aws_s3_platform_interface
   flutter:
@@ -26,3 +28,5 @@ flutter:
     platforms:
       android:
         default_package: aws_s3_android
+      ios:
+        default_package: aws_s3_ios

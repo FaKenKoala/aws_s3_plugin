@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 
 import 'package:flutter/services.dart';
+import 'package:aws_s3_plugin/aws_s3_plugin.dart' as aws;
 
 void main() {
   runApp(const MyApp());
@@ -20,8 +21,8 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
+    aws.calculateMd5("123");
   }
-
 
   @override
   Widget build(BuildContext context) {

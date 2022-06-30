@@ -15,6 +15,13 @@ packages:
       relative: false
     source: path
     version: "0.0.1"
+  aws_s3_ios:
+    dependency: transitive
+    description:
+      path: "/Users/wombat/FlutterProjects/object_storage_service/aws_s3_plugin/aws_s3_ios"
+      relative: false
+    source: path
+    version: "0.0.1"
   aws_s3_platform_interface:
     dependency: transitive
     description:
