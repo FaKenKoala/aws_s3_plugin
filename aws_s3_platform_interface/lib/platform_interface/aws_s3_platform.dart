@@ -10,9 +10,9 @@ class AwsS3Platform extends PlatformInterface {
   static final Object _token = Object();
 
   static AwsS3Platform _instance = MethodChannelAWSS3();
-  AwsS3Platform get instance => _instance;
+  static AwsS3Platform get instance => _instance;
 
-  set instance(AwsS3Platform instance) {
+  static set instance(AwsS3Platform instance) {
     PlatformInterface.verifyToken(instance, _token);
     _instance = instance;
   }
