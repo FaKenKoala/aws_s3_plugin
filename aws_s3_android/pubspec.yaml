@@ -27,4 +27,3 @@ flutter:
       android:
         package: com.wombat.aws_s3
         pluginClass: AwsS3Plugin
-        dartPluginClass: AwsS3Android

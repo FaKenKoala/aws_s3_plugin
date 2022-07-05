@@ -19,7 +19,7 @@ class AwsS3Platform extends PlatformInterface {
     throw UnimplementedError("calculateMd5() has not been implemented.");
   }
 
-  initialize(String endpoint, String bucket, Credentials credentials) {
+  initialize(String endpoint, String bucket, String region, Credentials credentials) {
     throw UnimplementedError('initialize() has not been implemented.');
   }
 
@@ -29,5 +29,15 @@ class AwsS3Platform extends PlatformInterface {
 
   Future<String?> cancelUpload(String uuid, {bool delete = false}) {
     throw UnimplementedError('cancelUpload() has not been implemented.');
+  }
+
+  String addUploadMethodCallListener(UploadMethodCallListener listener) {
+    throw UnimplementedError(
+        'addUploadMethodCallListener() has not been implemented.');
+  }
+
+  void removeUploadMethodCallListener({String? id, bool removeAll = false}) {
+    throw UnimplementedError(
+        'removeUploadMethodCallListener() has not been implemented.');
   }
 }

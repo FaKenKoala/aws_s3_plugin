@@ -7,8 +7,8 @@ Future<String> calculateMd5(String filePath) {
 }
 
 Future<dynamic> initialize(
-    String endpoint, String bucket, Credentials credentials) {
-  return AwsS3Platform.instance.initialize(endpoint, bucket, credentials);
+    String endpoint, String bucket, String region, Credentials credentials) {
+  return AwsS3Platform.instance.initialize(endpoint, bucket, region, credentials);
 }
 
 Future<dynamic> upload(
@@ -18,4 +18,13 @@ Future<dynamic> upload(
 
 Future<String?> cancelUpload(String uuid, {bool delete = false}) {
   return AwsS3Platform.instance.cancelUpload(uuid, delete: delete);
+}
+
+String addUploadMethodCallListener(UploadMethodCallListener listener) {
+  return AwsS3Platform.instance.addUploadMethodCallListener(listener);
+}
+
+void removeUploadMethodCallListener({String? id, bool removeAll = false}) {
+  return AwsS3Platform.instance
+      .removeUploadMethodCallListener(id: id, removeAll: removeAll);
 }

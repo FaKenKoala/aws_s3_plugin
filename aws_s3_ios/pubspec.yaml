@@ -26,6 +26,5 @@ flutter:
     platforms:
       ios:
         pluginClass: AwsS3Plugin
-        dartPluginClass: AwsS3IOS
 
 

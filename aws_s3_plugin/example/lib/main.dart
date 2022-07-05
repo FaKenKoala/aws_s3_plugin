@@ -4,7 +4,8 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:aws_s3_plugin/aws_s3_plugin.dart' as aws;
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const MyApp());
 }
 
@@ -16,14 +17,6 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  String _platformVersion = 'Unknown';
-
-  @override
-  void initState() {
-    super.initState();
-    aws.calculateMd5("123");
-  }
-
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -32,7 +25,11 @@ class _MyAppState extends State<MyApp> {
           title: const Text('Plugin example app'),
         ),
         body: Center(
-          child: Text('Running on: $_platformVersion\n'),
+          child: TextButton(
+              onPressed: () {
+                aws.calculateMd5('123');
+              },
+              child: Text('发送EventChannel')),
         ),
       ),
     );
