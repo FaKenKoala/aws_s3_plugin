@@ -6,18 +6,24 @@ Future<String> calculateMd5(String filePath) {
   return AwsS3Platform.instance.calculateMd5(filePath);
 }
 
-Future<dynamic> initialize(
+Future initialize(
     String endpoint, String bucket, String region, Credentials credentials) {
-  return AwsS3Platform.instance.initialize(endpoint, bucket, region, credentials);
+  return AwsS3Platform.instance
+      .initialize(endpoint, bucket, region, credentials);
 }
 
-Future<dynamic> upload(
-    String fileName, String filePath, String objectKey, String uuid) {
-  return AwsS3Platform.instance.upload(fileName, filePath, objectKey, uuid);
+Future upload(String fileName, String filePath, String objectKey, String uuid,
+    int taskId) {
+  return AwsS3Platform.instance
+      .upload(fileName, filePath, objectKey, uuid, taskId);
 }
 
-Future<String?> cancelUpload(String uuid, {bool delete = false}) {
-  return AwsS3Platform.instance.cancelUpload(uuid, delete: delete);
+Future pause(int taskId) {
+  return AwsS3Platform.instance.pause(taskId);
+}
+
+Future delete(int taskId) {
+  return AwsS3Platform.instance.delete(taskId);
 }
 
 String addUploadMethodCallListener(UploadMethodCallListener listener) {

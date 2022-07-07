@@ -75,37 +75,43 @@ class MethodChannelAWSS3 extends AwsS3Platform {
 
   @override
   Future<String> calculateMd5(String filePath) async {
-    return (await _channel
-        .invokeMethod('calculate_md5', {'filePath': filePath})) as String;
+    return (await _channel.invokeMethod('calculateMd5', {'filePath': filePath}))
+        as String;
   }
 
   @override
-  initialize(String endpoint, String bucket, Credentials credentials) {
+  initialize(
+      String endpoint, String bucket, String region, Credentials credentials) {
     return _channel.invokeMethod(
         'initialize',
         credentials.toJson()
           ..addAll({
             "endpoint": endpoint,
             "bucket": bucket,
+            "region": region,
           }));
   }
 
   @override
-  upload(String fileName, String filePath, String objectKey, String uuid) {
+  Future upload(String fileName, String filePath, String objectKey, String uuid,
+      int taskId) {
     return _channel.invokeMethod('upload', {
       "fileName": fileName,
       "filePath": filePath,
       "objectKey": objectKey,
       "uuid": uuid,
+      "taskId": taskId,
     });
   }
 
   @override
-  Future<String?> cancelUpload(String uuid, {bool delete = false}) {
-    return _channel.invokeMethod('cancel_upload', {
-      'uuid': uuid,
-      'delete': delete,
-    });
+  Future pause(int taskId) {
+    return _channel.invokeMethod('pause', {'taskId': taskId});
+  }
+
+  @override
+  Future delete(int taskId) {
+    return _channel.invokeMethod('delete', {'taskId': taskId});
   }
 
   @override

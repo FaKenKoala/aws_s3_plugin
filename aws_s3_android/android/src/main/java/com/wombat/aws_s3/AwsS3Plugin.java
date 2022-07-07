@@ -58,13 +58,10 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
     private MethodChannel methodChannel;
     private Activity activity;
     private TransferUtility transferUtility;
-    private String rootRecordDirectory;
     public static String bucket;
-    String uploadId;
     public static String TAG = "AwsS3Plugin";
 
     private final HashMap<String, TransferObserver> uploadTasks = new HashMap<>();
-    private List<TaskData> taskList = new ArrayList<>();
 
     @Override
     public void onAttachedToEngine(@NonNull FlutterPluginBinding binding) {
@@ -78,7 +75,6 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
     public void onDetachedFromEngine(@NonNull FlutterPluginBinding binding) {
         methodChannel.setMethodCallHandler(null);
     }
-
 
     @Override
     public void onAttachedToActivity(@NonNull ActivityPluginBinding binding) {
@@ -104,7 +100,7 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
     @Override
     public void onMethodCall(@NonNull MethodCall call, @NonNull MethodChannel.Result result) {
         switch (call.method) {
-            case "calculate_md5":
+            case "calculateMd5":
                 calculateMd5(call, result);
                 break;
             case "initialize":
@@ -113,8 +109,11 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
             case "upload":
                 upload(call, result);
                 break;
-            case "cancel_upload":
-                cancelUploadMethodCall(call, result);
+            case "pause":
+                pause(call, result);
+                break;
+            case "delete":
+                delete(call, result);
                 break;
             default:
                 result.notImplemented();
@@ -183,7 +182,6 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
                 .s3Client(sS3Client)
                 .build();
 
-        rootRecordDirectory = activity.getFilesDir().getAbsolutePath() + "/oatos/oss_record/";
         result.success(endpoint);
     }
 
@@ -192,16 +190,25 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
         String filePath = call.argument("filePath");
         String objectKey = call.argument("objectKey");
         String uuid = call.argument("uuid");
+        int taskId = call.argument("taskId");
+        Log.d(TAG, "开始上传uuid: " + uuid + ", id = " + taskId);
 
-        if (uploadTasks.containsKey(uuid)) {
-            int sameUuid = 0;
-            for (TaskData taskData : taskList) {
-                if (taskData.uuid.equals(uuid)) {
-                    Log.d("相同" + (sameUuid++), "uuid = " + taskData.uuid + ", 状态是否取消: " + (taskData.task.getState() == TransferState.CANCELED));
-                }
+        // 判断是否有id = taskId, 状态是暂停/取消/失败状态的任务
+        TransferObserver observer = transferUtility.getTransferById(taskId);
+        if (observer != null) {
+            observer = transferUtility.resume(taskId);
+            if (observer != null) {
+                Log.d(TAG, "有旧上传，进行恢复或重试: id = " + taskId);
+                result.success(taskId);
+                return;
             }
         }
 
+        // 新上传
+        newUpload(fileName, filePath, objectKey, uuid, result);
+    }
+
+    private void newUpload(String fileName, String filePath, String objectKey, String uuid, MethodChannel.Result result) {
         // 添加文件名 + 文件md5 + 文件类型 + 文件大小
         ObjectMetadata metadata = new ObjectMetadata();
         // 文件名
@@ -215,20 +222,34 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
         task.setTransferListener(new TransferListener() {
             @Override
             public void onStateChanged(int id, TransferState state) {
-                if (state == TransferState.COMPLETED) {
-                    activity.runOnUiThread(() -> {
-                        methodChannel.invokeMethod("upload_success", new HashMap<String, Object>() {{
-                            put("uuid", uuid);
-                            put("result", "上传成功能");
-                        }});
-                        uploadTasks.remove(uuid);
-                    });
+                Log.d(TAG, "上传状态变化: id = " + id + ", 状态: " + state.name());
+                HashMap<String, Object> result = new HashMap<String, Object>() {{
+                    put("uuid", uuid);
+                }};
+                String invokeMethod = null;
+                if (state == TransferState.PAUSED) {
+                    invokeMethod = "upload_fail";
+                    result.put("error", state.name());
+                    result.put("canceled", true);
+                } else if (state == TransferState.COMPLETED) {
+                    invokeMethod = "upload_success";
+                    result.put("result", "上传成功");
+
                 }
+                if (invokeMethod == null) {
+                    return;
+                }
+
+                String finalInvokeMethod = invokeMethod;
+                activity.runOnUiThread(() -> {
+                    methodChannel.invokeMethod(finalInvokeMethod, result);
+                });
+
             }
 
             @Override
             public void onProgressChanged(int id, long bytesCurrent, long bytesTotal) {
-                Log.d("上传id", "" + uploadId);
+                Log.d(TAG, "上传进度id: " + id);
                 if (activity != null) {
                     activity.runOnUiThread(() -> methodChannel.invokeMethod("upload_progress", new HashMap<String, Object>() {{
                         put("uuid", uuid);
@@ -243,52 +264,41 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
                 Log.d(TAG, "上传出错了: " + ex.getMessage());
                 if (activity != null) {
                     String finalInfo = ex.getMessage();
-                    Boolean finalCanceled = true;
                     activity.runOnUiThread(() -> {
                         methodChannel.invokeMethod("upload_fail", new HashMap<String, Object>() {{
                             put("uuid", uuid);
                             put("error", finalInfo);
-                            put("canceled", finalCanceled);
+                            put("canceled", false);
                         }});
-                        uploadTasks.remove(uuid);
                     });
                 }
             }
         });
 
-
-        uploadTasks.put(uuid, task);
-        taskList.add(new TaskData(uuid, task));
-        result.success(uuid);
+        result.success(task.getId());
     }
 
-    private void cancelUploadMethodCall(MethodCall call, MethodChannel.Result result) {
-        String uuid = call.argument("uuid");
-        boolean delete = Boolean.TRUE.equals(call.argument("delete"));
-        if (delete) {
-            // 删除断点记录文件
-//            FileUtil.Companion.deleteFile(getRecordDir(uuid));
-        }
-        TransferObserver task = uploadTasks.get(uuid);//uploadTasks.remove(uuid);
-        if (task != null) {
-            transferUtility.cancel(task.getId());
-            result.success(uuid);
+    private void pause(MethodCall call, MethodChannel.Result result) {
+        int taskId = call.argument("taskId");
+        TransferObserver observer = transferUtility.getTransferById(taskId);
+        if (observer != null) {
+            boolean pauseResult = transferUtility.pause(taskId);
+            Log.i(TAG, "taskId: " + taskId + ", 暂停结果: " + pauseResult);
+            result.success(taskId);
         } else {
             result.success(null);
         }
     }
 
-    private File getRecordDir(String uuid) {
-        return new File(rootRecordDirectory + File.separator + uuid);
-    }
-}
-
-class TaskData {
-    final String uuid;
-    final TransferObserver task;
-
-    TaskData(String uuid, TransferObserver task) {
-        this.uuid = uuid;
-        this.task = task;
+    private void delete(MethodCall call, MethodChannel.Result result) {
+        int taskId = call.argument("taskId");
+        TransferObserver observer = transferUtility.getTransferById(taskId);
+        if (observer != null) {
+            boolean deleteResult = transferUtility.deleteTransferRecord(taskId);
+            Log.i(TAG, "taskId: " + taskId + ", 删除结果: " + deleteResult);
+            result.success(taskId);
+        } else {
+            result.success(null);
+        }
     }
 }
