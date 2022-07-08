@@ -61,8 +61,6 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
     public static String bucket;
     public static String TAG = "AwsS3Plugin";
 
-    private final HashMap<String, TransferObserver> uploadTasks = new HashMap<>();
-
     @Override
     public void onAttachedToEngine(@NonNull FlutterPluginBinding binding) {
         methodChannel =

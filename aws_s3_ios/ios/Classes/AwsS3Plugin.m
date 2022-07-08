@@ -3,7 +3,7 @@
 @implementation AwsS3Plugin
 + (void)registerWithRegistrar:(NSObject<FlutterPluginRegistrar>*)registrar {
   FlutterMethodChannel* channel = [FlutterMethodChannel
-      methodChannelWithName:@"aws_s3_ios"
+      methodChannelWithName:@"aws_s3_plugin"
             binaryMessenger:[registrar messenger]];
   AwsS3Plugin* instance = [[AwsS3Plugin alloc] init];
   [registrar addMethodCallDelegate:instance channel:channel];
