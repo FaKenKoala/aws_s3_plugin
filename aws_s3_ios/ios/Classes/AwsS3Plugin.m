@@ -8,7 +8,6 @@ NSString *const TransferUtilityName = @"com.wombat/aws_s3_plugin";
 @interface AwsS3Plugin()
 {
   FlutterMethodChannel *_mainChannel;
-  NSString *bucket;
   AWSS3TransferUtility *transferUtility;
 }
 
@@ -22,6 +21,7 @@ NSString *const TransferUtilityName = @"com.wombat/aws_s3_plugin";
     _mainChannel = [FlutterMethodChannel
                     methodChannelWithName:@"com.wombat/aws_s3_plugin"
                     binaryMessenger:[registrar messenger]];
+    [AWSDDLog sharedInstance].logLevel = AWSDDLogLevelAll;
     [registrar addMethodCallDelegate:self channel:_mainChannel];
   }
   return self;
@@ -99,7 +99,7 @@ NSString *const TransferUtilityName = @"com.wombat/aws_s3_plugin";
   if(!region) {
     region = @"us-east-1";
   }
-  bucket = call.arguments[@"bucket"];
+  NSString *bucket = call.arguments[@"bucket"];
   NSString *accessKeyId = call.arguments[@"accessKeyId"];
   NSString *secretKeyId = call.arguments[@"secretKeyId"];
   
@@ -117,7 +117,7 @@ NSString *const TransferUtilityName = @"com.wombat/aws_s3_plugin";
     provider = [[AuthCredentialsProvider alloc] initWithAuthServerUrl:authUrl auhtorization:authorization];
   }
   
-  // 如果ossClient初始化过，那就暂停所有已经在上传的任务
+  // 如果aws初始化过，那就暂停所有已经在上传的任务
   if (transferUtility) {
     NSArray<AWSS3TransferUtilityUploadTask *> *allUploads = [[transferUtility getUploadTasks] result];
     for(AWSS3TransferUtilityUploadTask *task in allUploads) {
@@ -126,7 +126,7 @@ NSString *const TransferUtilityName = @"com.wombat/aws_s3_plugin";
     [AWSS3TransferUtility removeS3TransferUtilityForKey:TransferUtilityName];
   }
   
-  AWSEndpoint* awsEndpoing = [[AWSEndpoint alloc] initWithURLString:endpoint];
+  AWSEndpoint* awsEndpoing = [[AWSEndpoint alloc] initWithRegion:[region aws_regionTypeValue] service:AWSServiceS3 URL: [[NSURL alloc] initWithString:endpoint]];
   AWSServiceConfiguration* serviceConfiguration = [[AWSServiceConfiguration alloc] initWithRegion:[region aws_regionTypeValue] endpoint:awsEndpoing credentialsProvider:provider];
   
   AWSS3TransferUtilityConfiguration* transferUtilityConfiguration = [AWSS3TransferUtilityConfiguration alloc];
@@ -137,6 +137,7 @@ NSString *const TransferUtilityName = @"com.wombat/aws_s3_plugin";
   [AWSS3TransferUtility registerS3TransferUtilityWithConfiguration:serviceConfiguration transferUtilityConfiguration:transferUtilityConfiguration forKey:TransferUtilityName completionHandler:nil];
   transferUtility = [AWSS3TransferUtility S3TransferUtilityForKey:TransferUtilityName];
   result(endpoint);
+  
 }
 
 - (void)uploadMethodCall:(FlutterMethodCall*) call result:(FlutterResult)result {
