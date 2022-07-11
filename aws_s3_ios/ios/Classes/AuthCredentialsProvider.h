@@ -1,0 +1,18 @@
+//
+//  AuthCredentialsProvider.h
+//  aws_s3_ios
+//
+//  Created by wombat on 2022/7/11.
+//
+
+#ifndef AuthCredentialsProvider_h
+#define AuthCredentialsProvider_h
+
+#import <AWSS3/AWSS3.h>
+
+@interface AuthCredentialsProvider : NSObject<AWSCredentialsProvider>
+
+- (instancetype)initWithAuthServerUrl:(NSString *)authServerUrl auhtorization:(NSString *)authorization;
+@end
+
+#endif /* AuthCredentialsProvider_h */
