@@ -18,12 +18,12 @@ Future upload(String fileName, String filePath, String objectKey, String uuid,
       .upload(fileName, filePath, objectKey, uuid, taskId);
 }
 
-Future pause(String taskId) {
-  return AwsS3Platform.instance.pause(taskId);
+Future pause(String uuid, String taskId) {
+  return AwsS3Platform.instance.pause(uuid, taskId);
 }
 
-Future delete(String taskId) {
-  return AwsS3Platform.instance.delete(taskId);
+Future delete(String uuid, String taskId) {
+  return AwsS3Platform.instance.delete(uuid, taskId);
 }
 
 String addUploadMethodCallListener(UploadMethodCallListener listener) {

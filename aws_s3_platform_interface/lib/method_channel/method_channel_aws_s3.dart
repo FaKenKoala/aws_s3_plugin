@@ -105,13 +105,13 @@ class MethodChannelAWSS3 extends AwsS3Platform {
   }
 
   @override
-  Future pause(String taskId) {
-    return _channel.invokeMethod('pause', {'taskId': taskId});
+  Future pause(String uuid, String taskId) {
+    return _channel.invokeMethod('pause', {'uuid': uuid, 'taskId': taskId});
   }
 
   @override
-  Future delete(String taskId) {
-    return _channel.invokeMethod('delete', {'taskId': taskId});
+  Future delete(String uuid, String taskId) {
+    return _channel.invokeMethod('delete', {'uuid': uuid, 'taskId': taskId});
   }
 
   @override

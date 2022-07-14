@@ -10,7 +10,6 @@ NSString *const TransferUtilityName = @"com.wombat/aws_s3_plugin";
 {
   FlutterMethodChannel *_mainChannel;
   AWSS3TransferUtility *transferUtility;
-  NSMutableArray<AWSS3TransferUtilityMultiPartUploadTask *> *uploadTasks;
   NSString* bucket;
 }
 
@@ -26,7 +25,6 @@ NSString *const TransferUtilityName = @"com.wombat/aws_s3_plugin";
                     binaryMessenger:[registrar messenger]];
     [AWSDDLog sharedInstance].logLevel = AWSDDLogLevelVerbose;
     //    [AWSDDLog addLogger:[AWSDDTTYLogger sharedInstance]];
-    uploadTasks = [[NSMutableArray alloc] init];
     
     [registrar addMethodCallDelegate:self channel:_mainChannel];
   }
@@ -83,7 +81,6 @@ NSString *const TransferUtilityName = @"com.wombat/aws_s3_plugin";
       } else {
         NSLog(@"新建上传结果: transferID: %@", [task.result transferID]);
         flutterResult([task.result transferID]);
-        [self-> uploadTasks addObject:task.result];
       }
     });
     
@@ -181,7 +178,7 @@ NSString *const TransferUtilityName = @"com.wombat/aws_s3_plugin";
   
   if(taskId){
     NSArray<AWSS3TransferUtilityMultiPartUploadTask *> *allUploads = [[transferUtility getMultiPartUploadTasks] result];
-    NSLog(@"当前任务个数: %lu", [allUploads count]);
+    NSLog(@"当前任务个数: %lu", (unsigned long)[allUploads count]);
     for(AWSS3TransferUtilityUploadTask *task in allUploads) {
       NSLog(@"transferID: %@", [task transferID]);
       if ([taskId isEqualToString:[task transferID]]) {
@@ -198,17 +195,24 @@ NSString *const TransferUtilityName = @"com.wombat/aws_s3_plugin";
 
 - (void)pauseMethodCall:(FlutterMethodCall*) call result:(FlutterResult)result {
   
+  NSString *uuid = call.arguments[@"uuid"];
   NSString *taskId = call.arguments[@"taskId"];
   if (!transferUtility || !taskId) {
     result(nil);
     return;
   }
   NSArray<AWSS3TransferUtilityMultiPartUploadTask *> *allUploadTasks = [[transferUtility getMultiPartUploadTasks] result];
-  NSLog(@"当前任务个数: %lu", [allUploadTasks count]);
-  for(AWSS3TransferUtilityMultiPartUploadTask *task in uploadTasks) {
-    NSLog(@"transferID: %@, taskId: %@", [task transferID], taskId);
+  NSLog(@"暂停操作, 当前任务个数: %lu", (unsigned long)[allUploadTasks count]);
+  
+  for(AWSS3TransferUtilityMultiPartUploadTask *task in allUploadTasks) {
+    NSLog(@"transferID: %@, taskId: %@, status: %ld", [task transferID], taskId, (long)[task status]);
+  }
+  
+  for(AWSS3TransferUtilityMultiPartUploadTask *task in allUploadTasks) {
     if ([taskId isEqualToString:[task transferID]]) {
       [task suspend];
+      NSLog(@"找到了任务%@, 进行暂停", taskId);
+      [self->_mainChannel invokeMethod:@"upload_fail" arguments:@{@"uuid":uuid, @"error": @"cancel task", @"canceled":@((BOOL)true)}];
       result(taskId);
       return;
     }
@@ -219,11 +223,19 @@ NSString *const TransferUtilityName = @"com.wombat/aws_s3_plugin";
 
 - (void)deleteMethodCall:(FlutterMethodCall*) call result:(FlutterResult)result {
   
+  NSString *uuid = call.arguments[@"uuid"];
   NSString *taskId = call.arguments[@"taskId"];
   NSArray<AWSS3TransferUtilityMultiPartUploadTask *> *allTasks = [[transferUtility getMultiPartUploadTasks] result];
+  NSLog(@"删除操作, 当前任务个数: %lu", (unsigned long)[allTasks count]);
+  
+  for(AWSS3TransferUtilityMultiPartUploadTask *task in allTasks) {
+    NSLog(@"transferID: %@, taskId: %@, status: %ld", [task transferID], taskId, (long)[task status]);
+  }
+  
   for(AWSS3TransferUtilityMultiPartUploadTask *task in allTasks) {
     if ([taskId isEqualToString:[task transferID]]) {
       [task cancel];
+      NSLog(@"找到了任务%@, 进行删除", taskId);
       result(taskId);
       return;
     }
