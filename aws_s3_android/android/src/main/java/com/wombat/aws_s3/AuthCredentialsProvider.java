@@ -46,7 +46,7 @@ public class AuthCredentialsProvider implements AWSCredentialsProvider {
             }
             refresh();
         }
-        Log.d(TAG, "最终的token: " + credentials);
+//        Log.d(TAG, "最终的token: " + credentials);
         return credentials;
     }
 

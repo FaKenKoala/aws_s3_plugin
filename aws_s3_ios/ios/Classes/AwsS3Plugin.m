@@ -2,6 +2,7 @@
 #import <AWSS3/AWSS3.h>
 #import <MobileCoreServices/MobileCoreServices.h>
 #import "AuthCredentialsProvider.h"
+#import <FileMD5Hash/FileHash.h>
 
 NSString *const TransferUtilityName = @"com.wombat/aws_s3_plugin";
 
@@ -9,6 +10,8 @@ NSString *const TransferUtilityName = @"com.wombat/aws_s3_plugin";
 {
   FlutterMethodChannel *_mainChannel;
   AWSS3TransferUtility *transferUtility;
+  NSMutableArray<AWSS3TransferUtilityMultiPartUploadTask *> *uploadTasks;
+  NSString* bucket;
 }
 
 @end
@@ -21,13 +24,16 @@ NSString *const TransferUtilityName = @"com.wombat/aws_s3_plugin";
     _mainChannel = [FlutterMethodChannel
                     methodChannelWithName:@"com.wombat/aws_s3_plugin"
                     binaryMessenger:[registrar messenger]];
-    [AWSDDLog sharedInstance].logLevel = AWSDDLogLevelAll;
+    [AWSDDLog sharedInstance].logLevel = AWSDDLogLevelVerbose;
+    //    [AWSDDLog addLogger:[AWSDDTTYLogger sharedInstance]];
+    uploadTasks = [[NSMutableArray alloc] init];
+    
     [registrar addMethodCallDelegate:self channel:_mainChannel];
   }
   return self;
 }
 
--(void)uploadFileName:(NSString *)fileName filePath:(NSString*)filePath objectKey:(NSString *)objectKey uuid:(NSString *)uuid
+-(void)uploadFileName:(NSString *)fileName filePath:(NSString*)filePath objectKey:(NSString *)objectKey uuid:(NSString *)uuid flutterResult: (FlutterResult)flutterResult
 {
   NSLog(@"开始上传文件: %@", uuid);
   NSURL *fileURL = [NSURL fileURLWithPath:filePath];
@@ -38,27 +44,13 @@ NSString *const TransferUtilityName = @"com.wombat/aws_s3_plugin";
     mimeType = @"application/octet-stream";
   }
   
-  //Create the completion handler for the transfer
-  AWSS3TransferUtilityMultiPartUploadCompletionHandlerBlock completionHandler = ^(AWSS3TransferUtilityMultiPartUploadTask *task, NSError *error) {
-    dispatch_async(dispatch_get_main_queue(), ^{
-      if (error) {
-        [self->_mainChannel invokeMethod:@"upload_fail" arguments:@{@"uuid":uuid, @"error": [error description], @"canceled":@(false)}];
-      } else {
-        [self->_mainChannel invokeMethod:@"upload_success" arguments:@{@"uuid": uuid, @"result":@"upload success"}];
-      }
-    });
-  };
-  
-  //Create the TransferUtility expression and add the progress block to it.
-  //This would be needed to report on progress tracking
   AWSS3TransferUtilityMultiPartUploadExpression *expression = [AWSS3TransferUtilityMultiPartUploadExpression new];
   if(encodedFileName) {
-    [expression setValue:encodedFileName forRequestHeader:@"file-name"];
+    [expression setValue:encodedFileName forRequestHeader:@"x-amz-meta-file-name"];
   }
   
-  expression.progressBlock = ^(AWSS3TransferUtilityTask *task, NSProgress *progress) {
+  expression.progressBlock = ^(AWSS3TransferUtilityMultiPartUploadTask *task, NSProgress *progress) {
     dispatch_async(dispatch_get_main_queue(), ^{
-      NSLog(@"上传进度: %@", progress);
       [self->_mainChannel invokeMethod:@"upload_progress" arguments:@{
         @"uuid":uuid,
         @"bytesSent": @0,
@@ -67,7 +59,36 @@ NSString *const TransferUtilityName = @"com.wombat/aws_s3_plugin";
     });
   };
   
-  [transferUtility uploadFileUsingMultiPart:fileURL key:objectKey contentType:mimeType expression:expression completionHandler:completionHandler];
+  //  Create the completion handler for the transfer
+  AWSS3TransferUtilityMultiPartUploadCompletionHandlerBlock completionHandler = ^(AWSS3TransferUtilityMultiPartUploadTask *task, NSError *error) {
+    dispatch_async(dispatch_get_main_queue(), ^{
+      if (error) {
+        [self->_mainChannel invokeMethod:@"upload_fail" arguments:@{@"uuid":uuid, @"error": [error description], @"canceled":@((BOOL)false)}];
+      } else {
+        [self->_mainChannel invokeMethod:@"upload_success" arguments:@{@"uuid": uuid, @"result":@"upload success"}];
+      }
+    });
+  };
+  
+  dispatch_queue_t uploadQueue = dispatch_queue_create("upload queue", NULL);
+  dispatch_async(uploadQueue, ^{
+    AWSTask<AWSS3TransferUtilityMultiPartUploadTask *> *task = [self->transferUtility uploadFileUsingMultiPart:fileURL key:objectKey contentType:nil expression:expression completionHandler:completionHandler];
+    
+    [task waitUntilFinished];
+    
+    dispatch_async(dispatch_get_main_queue(), ^{
+      if (task.error) {
+        flutterResult(nil);
+        [self->_mainChannel invokeMethod:@"upload_fail" arguments:@{@"uuid":uuid, @"error": [task.error description], @"canceled":@(false)}];
+      } else {
+        NSLog(@"新建上传结果: transferID: %@", [task.result transferID]);
+        flutterResult([task.result transferID]);
+        [self-> uploadTasks addObject:task.result];
+      }
+    });
+    
+  });
+  
 }
 
 
@@ -82,15 +103,22 @@ NSString *const TransferUtilityName = @"com.wombat/aws_s3_plugin";
 # pragma mark - AwsS3Plugin
 
 - (void)calculateMd5MethodCall:(FlutterMethodCall*) call result:(FlutterResult)result {
-  //  NSString *filePath = call.arguments[@"filePath"];
-  //  dispatch_queue_t md5Queue = dispatch_queue_create("calculate md5", NULL);
-  //  dispatch_async(md5Queue, ^{
-  //    NSString *md5 = [ fileMD5String:filePath];
-  //    dispatch_async(dispatch_get_main_queue(), ^{
-  //      result(md5 == NULL ? @"": md5);
-  //    });
-  //  });
-  
+  NSString *filePath = call.arguments[@"filePath"];
+  dispatch_queue_t md5Queue = dispatch_queue_create("calculate md5", NULL);
+  dispatch_async(md5Queue, ^{
+    NSString *md5 = nil;
+    BOOL isDirectory = NO;
+    BOOL isExist = [[NSFileManager defaultManager] fileExistsAtPath:filePath isDirectory:&isDirectory];
+    if (isDirectory || !isExist) {
+      NSLog(@"计算md5的文件路径不存在: %@", filePath);
+    } else {
+      md5 = [FileHash md5HashOfFileAtPath:filePath];
+    }
+    
+    dispatch_async(dispatch_get_main_queue(), ^{
+      result(md5 == NULL ? @"": md5);
+    });
+  });
 }
 
 - (void)initializeMethodCall:(FlutterMethodCall*) call result:(FlutterResult)result {
@@ -99,7 +127,7 @@ NSString *const TransferUtilityName = @"com.wombat/aws_s3_plugin";
   if(!region) {
     region = @"us-east-1";
   }
-  NSString *bucket = call.arguments[@"bucket"];
+  bucket = call.arguments[@"bucket"];
   NSString *accessKeyId = call.arguments[@"accessKeyId"];
   NSString *secretKeyId = call.arguments[@"secretKeyId"];
   
@@ -117,27 +145,31 @@ NSString *const TransferUtilityName = @"com.wombat/aws_s3_plugin";
     provider = [[AuthCredentialsProvider alloc] initWithAuthServerUrl:authUrl auhtorization:authorization];
   }
   
-  // 如果aws初始化过，那就暂停所有已经在上传的任务
-  if (transferUtility) {
-    NSArray<AWSS3TransferUtilityUploadTask *> *allUploads = [[transferUtility getUploadTasks] result];
-    for(AWSS3TransferUtilityUploadTask *task in allUploads) {
-      [task suspend];
-    }
-    [AWSS3TransferUtility removeS3TransferUtilityForKey:TransferUtilityName];
-  }
-  
-  AWSEndpoint* awsEndpoing = [[AWSEndpoint alloc] initWithRegion:[region aws_regionTypeValue] service:AWSServiceS3 URL: [[NSURL alloc] initWithString:endpoint]];
+  AWSEndpoint* awsEndpoing = [[AWSEndpoint alloc] initWithURLString:endpoint];
   AWSServiceConfiguration* serviceConfiguration = [[AWSServiceConfiguration alloc] initWithRegion:[region aws_regionTypeValue] endpoint:awsEndpoing credentialsProvider:provider];
   
   AWSS3TransferUtilityConfiguration* transferUtilityConfiguration = [AWSS3TransferUtilityConfiguration alloc];
   transferUtilityConfiguration.bucket = bucket;
-  transferUtilityConfiguration.retryLimit = 2;
-  transferUtilityConfiguration.multiPartConcurrencyLimit = @(1);
+  transferUtilityConfiguration.retryLimit = 1;
+  transferUtilityConfiguration.timeoutIntervalForResource = 7 * 24 * 60 * 60;
+  transferUtilityConfiguration.multiPartConcurrencyLimit = @(5);
   
-  [AWSS3TransferUtility registerS3TransferUtilityWithConfiguration:serviceConfiguration transferUtilityConfiguration:transferUtilityConfiguration forKey:TransferUtilityName completionHandler:nil];
-  transferUtility = [AWSS3TransferUtility S3TransferUtilityForKey:TransferUtilityName];
+  // 如果aws初始化过，那就暂停所有已经在上传的任务
+  if (transferUtility) {
+    NSArray<AWSS3TransferUtilityMultiPartUploadTask *> *allUploads = [[transferUtility getMultiPartUploadTasks] result];
+    for(AWSS3TransferUtilityMultiPartUploadTask *task in allUploads) {
+      [task suspend];
+    }
+    id<AWSCredentialsProvider> usedProvider = transferUtility.configuration.credentialsProvider;
+    if ([usedProvider isKindOfClass:[AuthCredentialsProvider class]] && [provider isKindOfClass:[AuthCredentialsProvider class]]) {
+      [(AuthCredentialsProvider*)usedProvider refreshWithAuthServerUrl:((AuthCredentialsProvider*)provider).authServerUrl auhtorization:((AuthCredentialsProvider*)provider).authorization];
+    }
+  }else {
+    [AWSS3TransferUtility registerS3TransferUtilityWithConfiguration:serviceConfiguration transferUtilityConfiguration:transferUtilityConfiguration forKey:TransferUtilityName completionHandler:nil];
+    transferUtility = [AWSS3TransferUtility S3TransferUtilityForKey:TransferUtilityName];
+  }
+  
   result(endpoint);
-  
 }
 
 - (void)uploadMethodCall:(FlutterMethodCall*) call result:(FlutterResult)result {
@@ -145,29 +177,37 @@ NSString *const TransferUtilityName = @"com.wombat/aws_s3_plugin";
   NSString *filePath = call.arguments[@"filePath"];
   NSString *objectKey = call.arguments[@"objectKey"];
   NSString *uuid = call.arguments[@"uuid"];
-  NSNumber *taskId = call.arguments[@"taskId"];
+  NSString *taskId = call.arguments[@"taskId"];
   
-  NSArray<AWSS3TransferUtilityUploadTask *> *allUploads = [[transferUtility getUploadTasks] result];
-  
-  for( AWSS3TransferUtilityUploadTask *task in allUploads) {
-    if ([task taskIdentifier] == [taskId integerValue]) {
-      [task resume];
-      result(taskId);
-      return;
+  if(taskId){
+    NSArray<AWSS3TransferUtilityMultiPartUploadTask *> *allUploads = [[transferUtility getMultiPartUploadTasks] result];
+    NSLog(@"当前任务个数: %lu", [allUploads count]);
+    for(AWSS3TransferUtilityUploadTask *task in allUploads) {
+      NSLog(@"transferID: %@", [task transferID]);
+      if ([taskId isEqualToString:[task transferID]]) {
+        [task resume];
+        result(taskId);
+        return;
+      }
     }
   }
   
-  [self uploadFileName:fileName filePath:filePath objectKey:objectKey uuid:uuid];
+  [self uploadFileName:fileName filePath:filePath objectKey:objectKey uuid:uuid flutterResult:result];
   
 }
 
 - (void)pauseMethodCall:(FlutterMethodCall*) call result:(FlutterResult)result {
   
-  NSNumber *taskId = call.arguments[@"taskId"];
-  NSArray<AWSS3TransferUtilityUploadTask *> *allUploads = [[transferUtility getUploadTasks] result];
-  
-  for( AWSS3TransferUtilityUploadTask *task in allUploads) {
-    if ([task taskIdentifier] == [taskId integerValue]) {
+  NSString *taskId = call.arguments[@"taskId"];
+  if (!transferUtility || !taskId) {
+    result(nil);
+    return;
+  }
+  NSArray<AWSS3TransferUtilityMultiPartUploadTask *> *allUploadTasks = [[transferUtility getMultiPartUploadTasks] result];
+  NSLog(@"当前任务个数: %lu", [allUploadTasks count]);
+  for(AWSS3TransferUtilityMultiPartUploadTask *task in uploadTasks) {
+    NSLog(@"transferID: %@, taskId: %@", [task transferID], taskId);
+    if ([taskId isEqualToString:[task transferID]]) {
       [task suspend];
       result(taskId);
       return;
@@ -179,11 +219,10 @@ NSString *const TransferUtilityName = @"com.wombat/aws_s3_plugin";
 
 - (void)deleteMethodCall:(FlutterMethodCall*) call result:(FlutterResult)result {
   
-  NSNumber *taskId = call.arguments[@"taskId"];
-  NSArray<AWSS3TransferUtilityUploadTask *> *allUploads = [[transferUtility getUploadTasks] result];
-  
-  for( AWSS3TransferUtilityUploadTask *task in allUploads) {
-    if ([task taskIdentifier] == [taskId integerValue]) {
+  NSString *taskId = call.arguments[@"taskId"];
+  NSArray<AWSS3TransferUtilityMultiPartUploadTask *> *allTasks = [[transferUtility getMultiPartUploadTasks] result];
+  for(AWSS3TransferUtilityMultiPartUploadTask *task in allTasks) {
+    if ([taskId isEqualToString:[task transferID]]) {
       [task cancel];
       result(taskId);
       return;
@@ -201,7 +240,7 @@ NSString *const TransferUtilityName = @"com.wombat/aws_s3_plugin";
 
 - (void)handleMethodCall:(FlutterMethodCall*)call result:(FlutterResult)result {
   if ([@"calculateMd5" isEqualToString:call.method]) {
-    //    [self calculateMd5MethodCall:call result:result];
+    [self calculateMd5MethodCall:call result:result];
     result(FlutterMethodNotImplemented);
   } else if([@"initialize" isEqualToString:call.method]) {
     [self initializeMethodCall:call result:result];

@@ -14,6 +14,7 @@ import com.amazonaws.auth.BasicSessionCredentials;
 import com.amazonaws.auth.CognitoCredentialsProvider;
 import com.amazonaws.auth.STSSessionCredentialsProvider;
 import com.amazonaws.internal.StaticCredentialsProvider;
+import com.amazonaws.logging.LogFactory;
 import com.amazonaws.mobile.client.AWSMobileClient;
 import com.amazonaws.mobile.client.Callback;
 import com.amazonaws.mobile.client.UserStateDetails;
@@ -38,6 +39,7 @@ import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
 
 import io.flutter.embedding.engine.plugins.FlutterPlugin;
@@ -67,6 +69,8 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
                 new MethodChannel(binding.getBinaryMessenger(), "com.wombat/aws_s3_plugin");
 
         methodChannel.setMethodCallHandler(this);
+        // 设置日志
+        LogFactory.setLevel(LogFactory.Level.OFF);
     }
 
     @Override
@@ -188,7 +192,12 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
         String filePath = call.argument("filePath");
         String objectKey = call.argument("objectKey");
         String uuid = call.argument("uuid");
-        int taskId = call.argument("taskId");
+        int taskId = -1;
+        try {
+            taskId = Integer.parseInt((String) Objects.requireNonNull(call.argument("taskId")));
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
         Log.d(TAG, "开始上传uuid: " + uuid + ", id = " + taskId);
 
         // 判断是否有id = taskId, 状态是暂停/取消/失败状态的任务
@@ -207,6 +216,7 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
     }
 
     private void newUpload(String fileName, String filePath, String objectKey, String uuid, MethodChannel.Result result) {
+        Log.d(TAG, "新上传");
         // 添加文件名 + 文件md5 + 文件类型 + 文件大小
         ObjectMetadata metadata = new ObjectMetadata();
         // 文件名
@@ -277,7 +287,12 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
     }
 
     private void pause(MethodCall call, MethodChannel.Result result) {
-        int taskId = call.argument("taskId");
+        int taskId = -1;
+        try {
+            taskId = Integer.parseInt((String) Objects.requireNonNull(call.argument("taskId")));
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
         TransferObserver observer = transferUtility.getTransferById(taskId);
         if (observer != null) {
             boolean pauseResult = transferUtility.pause(taskId);
@@ -289,7 +304,12 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
     }
 
     private void delete(MethodCall call, MethodChannel.Result result) {
-        int taskId = call.argument("taskId");
+        int taskId = -1;
+        try {
+            taskId = Integer.parseInt((String) Objects.requireNonNull(call.argument("taskId")));
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
         TransferObserver observer = transferUtility.getTransferById(taskId);
         if (observer != null) {
             boolean deleteResult = transferUtility.deleteTransferRecord(taskId);

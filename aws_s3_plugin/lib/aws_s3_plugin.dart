@@ -13,16 +13,16 @@ Future initialize(
 }
 
 Future upload(String fileName, String filePath, String objectKey, String uuid,
-    int taskId) {
+    String taskId) {
   return AwsS3Platform.instance
       .upload(fileName, filePath, objectKey, uuid, taskId);
 }
 
-Future pause(int taskId) {
+Future pause(String taskId) {
   return AwsS3Platform.instance.pause(taskId);
 }
 
-Future delete(int taskId) {
+Future delete(String taskId) {
   return AwsS3Platform.instance.delete(taskId);
 }
 

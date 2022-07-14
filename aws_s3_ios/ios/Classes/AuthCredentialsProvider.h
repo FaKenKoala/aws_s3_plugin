@@ -12,7 +12,11 @@
 
 @interface AuthCredentialsProvider : NSObject<AWSCredentialsProvider>
 
+@property (nonatomic, copy) NSString * authServerUrl;
+@property (nonatomic, copy) NSString * authorization;
+
 - (instancetype)initWithAuthServerUrl:(NSString *)authServerUrl auhtorization:(NSString *)authorization;
+- (void)refreshWithAuthServerUrl:(NSString *)authServerUrl auhtorization:(NSString *)authorization;
 @end
 
 #endif /* AuthCredentialsProvider_h */

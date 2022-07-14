@@ -24,15 +24,15 @@ class AwsS3Platform extends PlatformInterface {
     throw UnimplementedError('initialize() has not been implemented.');
   }
 
-  Future upload(String fileName, String filePath, String objectKey, String uuid, int taskId) {
+  Future upload(String fileName, String filePath, String objectKey, String uuid, String taskId) {
     throw UnimplementedError('upload() has not been implemented.');
   }
 
-  Future pause(int taskId) {
+  Future pause(String taskId) {
     throw UnimplementedError('pause() has not been implemented.');
   }
 
-  Future delete(int taskId) {
+  Future delete(String taskId) {
     throw UnimplementedError('delete() has not been implemented.');
   }
 

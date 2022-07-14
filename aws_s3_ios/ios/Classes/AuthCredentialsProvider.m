@@ -10,9 +10,6 @@
 
 @interface AuthCredentialsProvider()
 
-@property (nonatomic, copy) NSString * authServerUrl;
-@property (nonatomic, copy) NSString * authorization;
-
 @property (nonatomic, strong) AWSCredentials *internalCredentials;
 
 @property (readonly) BOOL isValid;
@@ -29,9 +26,15 @@
   return self;
 }
 
+-(void)refreshWithAuthServerUrl:(NSString *)authServerUrl auhtorization:(NSString *)authorization {
+  self.authServerUrl = authServerUrl;
+  self.authorization = authorization;
+  self.internalCredentials = nil;
+}
+
 - (AWSTask<AWSCredentials *> *)credentials {
   if(self.isValid){
-    NSLog(@"credentials还有效: %@", [self.internalCredentials description]);
+    AWSDDLogVerbose(@"credentials还有效: %@", [self.internalCredentials description]);
     return [AWSTask taskWithResult:self.internalCredentials];
   }
   NSURL * url = [NSURL URLWithString:self.authServerUrl];
@@ -61,7 +64,7 @@
     NSDictionary *object = [NSJSONSerialization JSONObjectWithData:data
                                                            options:kNilOptions
                                                              error:nil];
-    NSLog(@"请求结果: %@", [object description]);
+    AWSDDLogVerbose(@"请求结果: %@", [object description]);
     NSString *statusCode = [object objectForKey:@"statusCode"];
     
     if ([[statusCode uppercaseString] isEqualToString:@"OK"]) {
@@ -76,8 +79,8 @@
 }
 
 - (void)invalidateCachedTemporaryCredentials {
-  NSLog(@"设置Credentials无效");
-  self.internalCredentials = nil;
+  AWSDDLogVerbose(@"设置Credentials无效, 此处不操作");
+//  self.internalCredentials = nil;
 }
 
 - (BOOL)isValid {

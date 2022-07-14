@@ -45,7 +45,7 @@ class MethodChannelAWSS3 extends AwsS3Platform {
       case "upload_progress":
         UploadProgressData progressData =
             UploadProgressData.fromJson(_toMap(methodCall.arguments));
-        debugPrint("上传进度: ${progressData.toJson()}");
+        // debugPrint("上传进度: ${progressData.toJson()}");
         _notifyUploadListeners(
             (listener) => listener.progress?.call(progressData));
         break;
@@ -94,7 +94,7 @@ class MethodChannelAWSS3 extends AwsS3Platform {
 
   @override
   Future upload(String fileName, String filePath, String objectKey, String uuid,
-      int taskId) {
+      String taskId) {
     return _channel.invokeMethod('upload', {
       "fileName": fileName,
       "filePath": filePath,
@@ -105,12 +105,12 @@ class MethodChannelAWSS3 extends AwsS3Platform {
   }
 
   @override
-  Future pause(int taskId) {
+  Future pause(String taskId) {
     return _channel.invokeMethod('pause', {'taskId': taskId});
   }
 
   @override
-  Future delete(int taskId) {
+  Future delete(String taskId) {
     return _channel.invokeMethod('delete', {'taskId': taskId});
   }
 
