@@ -192,7 +192,7 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
         String filePath = call.argument("filePath");
         String objectKey = call.argument("objectKey");
         String uuid = call.argument("uuid");
-        int taskId = -1;
+        int taskId = 0;
         try {
             taskId = Integer.parseInt((String) Objects.requireNonNull(call.argument("taskId")));
         } catch (Exception ex) {
@@ -287,7 +287,7 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
     }
 
     private void pause(MethodCall call, MethodChannel.Result result) {
-        int taskId = -1;
+        int taskId = 0;
         try {
             taskId = Integer.parseInt((String) Objects.requireNonNull(call.argument("taskId")));
         } catch (Exception ex) {
@@ -304,7 +304,7 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
     }
 
     private void delete(MethodCall call, MethodChannel.Result result) {
-        int taskId = -1;
+        int taskId = 0;
         try {
             taskId = Integer.parseInt((String) Objects.requireNonNull(call.argument("taskId")));
         } catch (Exception ex) {
