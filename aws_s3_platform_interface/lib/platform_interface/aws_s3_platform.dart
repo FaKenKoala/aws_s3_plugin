@@ -36,6 +36,10 @@ class AwsS3Platform extends PlatformInterface {
     throw UnimplementedError('delete() has not been implemented.');
   }
 
+  Future<String?> getTempFilePath(String filePath) {
+    throw UnimplementedError('getTempFilePath() has not been implemented.');
+  }
+
   String addUploadMethodCallListener(UploadMethodCallListener listener) {
     throw UnimplementedError(
         'addUploadMethodCallListener() has not been implemented.');

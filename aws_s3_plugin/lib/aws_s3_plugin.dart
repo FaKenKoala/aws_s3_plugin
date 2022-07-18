@@ -26,6 +26,10 @@ Future delete(String uuid, String taskId) {
   return AwsS3Platform.instance.delete(uuid, taskId);
 }
 
+Future<String?> getTempFilePath(String filePath) {
+  return AwsS3Platform.instance.getTempFilePath(filePath);
+}
+
 String addUploadMethodCallListener(UploadMethodCallListener listener) {
   return AwsS3Platform.instance.addUploadMethodCallListener(listener);
 }

@@ -115,6 +115,11 @@ class MethodChannelAWSS3 extends AwsS3Platform {
   }
 
   @override
+  Future<String?> getTempFilePath(String filePath) {
+    return _channel.invokeMethod('getTempFilePath', {'filePath': filePath});
+  }
+
+  @override
   String addUploadMethodCallListener(UploadMethodCallListener listener) {
     String uuid = Uuid().v4();
     _uploadMethodCallListeners[uuid] = listener;

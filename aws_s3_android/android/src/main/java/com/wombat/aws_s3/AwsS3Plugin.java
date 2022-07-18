@@ -7,6 +7,7 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.amazonaws.ClientConfiguration;
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
@@ -151,13 +152,6 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
         bucket = call.argument("bucket");
         String accessKeyId = call.argument("accessKeyId");
 
-
-//        ClientConfiguration config = new ClientConfiguration();
-//        config.setConnectionTimeout(20 * 1000);
-//        config.setSocketTimeout(20 * 1000);
-//        config.setMaxConcurrentRequest(1);
-//        config.setMaxErrorRetry(Integer.MAX_VALUE);
-
         AWSCredentialsProvider credentialsProvider;
         if (accessKeyId != null) {
             AWSCredentials credentials;
@@ -175,7 +169,12 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
             credentialsProvider = new AuthCredentialsProvider(authUrl, authorization);
         }
 
-        AmazonS3Client sS3Client = new AmazonS3Client(credentialsProvider, Region.getRegion(regionString));
+        ClientConfiguration clientConfiguration = new ClientConfiguration()
+                .withConnectionTimeout(20 * 1000)
+                .withSocketTimeout(20 * 1000)
+//                .withMaxConnections(5)
+                ;
+        AmazonS3Client sS3Client = new AmazonS3Client(credentialsProvider, Region.getRegion(regionString), clientConfiguration);
         sS3Client.setEndpoint(endpoint);
 
         transferUtility = TransferUtility.builder()
@@ -206,7 +205,7 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
             TransferState state = observer.getState();
             observer = transferUtility.resume(taskId);
             if (observer != null) {
-                Log.d(TAG, "有旧上传，进行恢复或重试: id = " + taskId +", 状态: " + state + ", 恢复后状态: " + observer.getState());
+                Log.d(TAG, "有旧上传，进行恢复或重试: id = " + taskId + ", 状态: " + state + ", 恢复后状态: " + observer.getState());
                 result.success(taskId);
                 return;
             }

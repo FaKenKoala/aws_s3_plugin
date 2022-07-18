@@ -31,10 +31,46 @@ NSString *const TransferUtilityName = @"com.wombat/aws_s3_plugin";
   return self;
 }
 
+- (BOOL) checkFileExist: (NSString *) filePath {
+  NSFileManager* fileManager = [NSFileManager defaultManager];
+  return [fileManager fileExistsAtPath:filePath];
+}
+
+- (AWSS3TransferUtilityMultiPartProgressBlock)progressBlock: (NSString*) uuid {
+  return ^(AWSS3TransferUtilityMultiPartUploadTask *task, NSProgress *progress) {
+    NSLog(@"文件上传进度更新，状态: %ld, uuid: %@, transferID: %@, taskIdentifier: %lu", [task status], uuid, [task transferID], (long)[task taskIdentifier]);
+    if (task.status != AWSS3TransferUtilityTransferStatusInProgress){
+      NSLog(@"状态不是IN_PROGRESS, 所以不更新UI");
+      return;
+    }
+    dispatch_async(dispatch_get_main_queue(), ^{
+      [self->_mainChannel invokeMethod:@"upload_progress" arguments:@{
+        @"uuid":uuid,
+        @"bytesSent": @0,
+        @"totalBytesSent": @(progress.completedUnitCount),
+        @"totalBytesExpectedToSend": @(progress.totalUnitCount)}];
+      
+    });
+  };
+}
+
+- (AWSS3TransferUtilityMultiPartUploadCompletionHandlerBlock)completionBlock: (NSString*) uuid {
+  return ^(AWSS3TransferUtilityMultiPartUploadTask *task, NSError *error) {
+    dispatch_async(dispatch_get_main_queue(), ^{
+      if (error) {
+        [self->_mainChannel invokeMethod:@"upload_fail" arguments:@{@"uuid":uuid, @"error": [error description], @"canceled":@((BOOL)false)}];
+      } else {
+        [self->_mainChannel invokeMethod:@"upload_success" arguments:@{@"uuid": uuid, @"result":@"upload success"}];
+      }
+    });
+  };
+}
+
 -(void)uploadFileName:(NSString *)fileName filePath:(NSString*)filePath objectKey:(NSString *)objectKey uuid:(NSString *)uuid flutterResult: (FlutterResult)flutterResult
 {
   NSLog(@"开始上传文件新任务uuid: %@", uuid);
-  NSURL *fileURL = [NSURL fileURLWithPath:filePath];
+  
+  NSURL* fileURL = [NSURL fileURLWithPath:filePath];
   NSString *encodedFileName = [fileName stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
   
   NSString *mimeType = [self mimeTypeFileURL:fileURL];
@@ -47,26 +83,10 @@ NSString *const TransferUtilityName = @"com.wombat/aws_s3_plugin";
     [expression setValue:encodedFileName forRequestHeader:@"x-amz-meta-file-name"];
   }
   
-  expression.progressBlock = ^(AWSS3TransferUtilityMultiPartUploadTask *task, NSProgress *progress) {
-    dispatch_async(dispatch_get_main_queue(), ^{
-      [self->_mainChannel invokeMethod:@"upload_progress" arguments:@{
-        @"uuid":uuid,
-        @"bytesSent": @0,
-        @"totalBytesSent": @(progress.completedUnitCount),
-        @"totalBytesExpectedToSend": @(progress.totalUnitCount)}];
-    });
-  };
+  expression.progressBlock = [self progressBlock:uuid];
   
   //  Create the completion handler for the transfer
-  AWSS3TransferUtilityMultiPartUploadCompletionHandlerBlock completionHandler = ^(AWSS3TransferUtilityMultiPartUploadTask *task, NSError *error) {
-    dispatch_async(dispatch_get_main_queue(), ^{
-      if (error) {
-        [self->_mainChannel invokeMethod:@"upload_fail" arguments:@{@"uuid":uuid, @"error": [error description], @"canceled":@((BOOL)false)}];
-      } else {
-        [self->_mainChannel invokeMethod:@"upload_success" arguments:@{@"uuid": uuid, @"result":@"upload success"}];
-      }
-    });
-  };
+  AWSS3TransferUtilityMultiPartUploadCompletionHandlerBlock completionHandler = [self completionBlock:uuid];
   
   dispatch_queue_t uploadQueue = dispatch_queue_create("upload queue", NULL);
   dispatch_async(uploadQueue, ^{
@@ -116,6 +136,15 @@ NSString *const TransferUtilityName = @"com.wombat/aws_s3_plugin";
       result(md5 == NULL ? @"": md5);
     });
   });
+}
+
+- (void)getTempFilePathMethodCall:(FlutterMethodCall*) call result:(FlutterResult)result {
+  NSString *inputFilePath = call.arguments[@"filePath"];
+  
+  NSRange tempRange = [inputFilePath rangeOfString:@"/tmp/"];
+  NSString* filePathWithoutTempDir = [inputFilePath substringFromIndex:tempRange.location + tempRange.length];
+  NSString* filePath = [NSTemporaryDirectory() stringByAppendingString:filePathWithoutTempDir];
+  result(filePath);
 }
 
 - (void)initializeMethodCall:(FlutterMethodCall*) call result:(FlutterResult)result {
@@ -179,10 +208,14 @@ NSString *const TransferUtilityName = @"com.wombat/aws_s3_plugin";
   if(taskId){
     NSArray<AWSS3TransferUtilityMultiPartUploadTask *> *allUploads = [[transferUtility getMultiPartUploadTasks] result];
     NSLog(@"当前任务个数: %lu", (unsigned long)[allUploads count]);
-    for(AWSS3TransferUtilityUploadTask *task in allUploads) {
-      NSLog(@"--- transferID: %@", [task transferID]);
+    for(AWSS3TransferUtilityMultiPartUploadTask *task in allUploads) {
+      NSLog(@"transferID: %@, taskId: %@, status: %ld", [task transferID], taskId, (long)[task status]);
       if ([taskId isEqualToString:[task transferID]]) {
+        NSLog(@"找到了,进行恢复");
+        [task setProgressBlock: [self progressBlock:uuid]];
+        [task setCompletionHandler: [self completionBlock:uuid]];
         [task resume];
+        
         result(taskId);
         return;
       }
@@ -206,14 +239,9 @@ NSString *const TransferUtilityName = @"com.wombat/aws_s3_plugin";
   
   for(AWSS3TransferUtilityMultiPartUploadTask *task in allUploadTasks) {
     NSLog(@"transferID: %@, taskId: %@, status: %ld", [task transferID], taskId, (long)[task status]);
-  }
-  
-  for(AWSS3TransferUtilityMultiPartUploadTask *task in allUploadTasks) {
     if ([taskId isEqualToString:[task transferID]]) {
-    
-      [task suspend];
       NSLog(@"找到了任务%@, 进行暂停", taskId);
-      [self->_mainChannel invokeMethod:@"upload_fail" arguments:@{@"uuid":uuid, @"error": @"cancel task", @"canceled":@((BOOL)true)}];
+      [task suspend];
       result(taskId);
       return;
     }
@@ -235,9 +263,6 @@ NSString *const TransferUtilityName = @"com.wombat/aws_s3_plugin";
   
   for(AWSS3TransferUtilityMultiPartUploadTask *task in allTasks) {
     NSLog(@"transferID: %@, taskId: %@, status: %ld", [task transferID], taskId, (long)[task status]);
-  }
-  
-  for(AWSS3TransferUtilityMultiPartUploadTask *task in allTasks) {
     if ([taskId isEqualToString:[task transferID]]) {
       [task cancel];
       NSLog(@"找到了任务%@, 进行删除", taskId);
@@ -258,8 +283,9 @@ NSString *const TransferUtilityName = @"com.wombat/aws_s3_plugin";
 - (void)handleMethodCall:(FlutterMethodCall*)call result:(FlutterResult)result {
   if ([@"calculateMd5" isEqualToString:call.method]) {
     [self calculateMd5MethodCall:call result:result];
-    result(FlutterMethodNotImplemented);
-  } else if([@"initialize" isEqualToString:call.method]) {
+  } else if([@"getTempFilePath" isEqualToString:call.method]){
+    [self getTempFilePathMethodCall:call result:result];
+  }else if([@"initialize" isEqualToString:call.method]) {
     [self initializeMethodCall:call result:result];
   } else if([@"upload" isEqualToString:call.method]) {
     [self uploadMethodCall:call result:result];
