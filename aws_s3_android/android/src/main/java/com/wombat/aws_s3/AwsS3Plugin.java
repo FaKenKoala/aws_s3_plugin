@@ -21,6 +21,7 @@ import com.amazonaws.mobile.client.Callback;
 import com.amazonaws.mobile.client.UserStateDetails;
 import com.amazonaws.mobile.config.AWSConfiguration;
 import com.amazonaws.mobileconnectors.s3.transferutility.TransferListener;
+import com.amazonaws.mobileconnectors.s3.transferutility.TransferNetworkLossHandler;
 import com.amazonaws.mobileconnectors.s3.transferutility.TransferObserver;
 import com.amazonaws.mobileconnectors.s3.transferutility.TransferState;
 import com.amazonaws.mobileconnectors.s3.transferutility.TransferUtility;
@@ -71,7 +72,7 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
 
         methodChannel.setMethodCallHandler(this);
         // 设置日志
-        LogFactory.setLevel(LogFactory.Level.OFF);
+        LogFactory.setLevel(LogFactory.Level.ALL);
     }
 
     @Override
