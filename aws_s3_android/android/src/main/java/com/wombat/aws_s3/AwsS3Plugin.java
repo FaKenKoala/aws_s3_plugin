@@ -1,59 +1,40 @@
 package com.wombat.aws_s3;
 
 import android.app.Activity;
-import android.net.Uri;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 
 import com.amazonaws.ClientConfiguration;
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.auth.BasicSessionCredentials;
-import com.amazonaws.auth.CognitoCredentialsProvider;
-import com.amazonaws.auth.STSSessionCredentialsProvider;
 import com.amazonaws.internal.StaticCredentialsProvider;
 import com.amazonaws.logging.LogFactory;
-import com.amazonaws.mobile.client.AWSMobileClient;
-import com.amazonaws.mobile.client.Callback;
-import com.amazonaws.mobile.client.UserStateDetails;
-import com.amazonaws.mobile.config.AWSConfiguration;
 import com.amazonaws.mobileconnectors.s3.transferutility.TransferListener;
-import com.amazonaws.mobileconnectors.s3.transferutility.TransferNetworkLossHandler;
 import com.amazonaws.mobileconnectors.s3.transferutility.TransferObserver;
 import com.amazonaws.mobileconnectors.s3.transferutility.TransferState;
 import com.amazonaws.mobileconnectors.s3.transferutility.TransferUtility;
-import com.amazonaws.mobileconnectors.s3.transferutility.TransferUtilityOptions;
 import com.amazonaws.regions.Region;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.util.BinaryUtils;
 import com.amazonaws.util.Md5Utils;
 
-import org.json.JSONException;
-
 import java.io.File;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.CountDownLatch;
 
 import io.flutter.embedding.engine.plugins.FlutterPlugin;
 import io.flutter.embedding.engine.plugins.activity.ActivityAware;
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding;
-import io.flutter.plugin.common.BasicMessageChannel;
-import io.flutter.plugin.common.EventChannel;
 import io.flutter.plugin.common.MethodCall;
 import io.flutter.plugin.common.MethodChannel;
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler;
-import io.flutter.plugin.common.MethodChannel.Result;
-import io.flutter.plugin.common.StandardMessageCodec;
 
 /**
  * AwsS3AndroidPlugin
@@ -184,6 +165,7 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
                 .s3Client(sS3Client)
                 .build();
 
+
         result.success(endpoint);
     }
 
@@ -207,6 +189,7 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
             observer = transferUtility.resume(taskId);
             if (observer != null) {
                 Log.d(TAG, "有旧上传，进行恢复或重试: id = " + taskId + ", 状态: " + state + ", 恢复后状态: " + observer.getState());
+                observer.setTransferListener(new UploadListener(uuid));
                 result.success(taskId);
                 return;
             }
@@ -228,68 +211,11 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
         }
 
         TransferObserver task = transferUtility.upload(objectKey, new File(filePath), metadata);
-        task.setTransferListener(new TransferListener() {
-            @Override
-            public void onStateChanged(int id, TransferState state) {
-                Log.d(TAG, "上传状态变化: id = " + id + ", 状态: " + state.name());
-                HashMap<String, Object> result = new HashMap<String, Object>() {{
-                    put("uuid", uuid);
-                }};
-                String invokeMethod = null;
-                if (state == TransferState.PAUSED) {
-                    invokeMethod = "upload_fail";
-                    result.put("error", state.name());
-                    result.put("canceled", true);
-                } else if (state == TransferState.COMPLETED) {
-                    invokeMethod = "upload_success";
-                    result.put("result", "上传成功");
-
-                }
-                if (invokeMethod == null) {
-                    return;
-                }
-
-                String finalInvokeMethod = invokeMethod;
-                activity.runOnUiThread(() -> methodChannel.invokeMethod(finalInvokeMethod, result));
-
-            }
-
-            @Override
-            public void onProgressChanged(int id, long bytesCurrent, long bytesTotal) {
-                TransferState state = transferUtility.getTransferById(id).getState();
-
-                Log.d(TAG, "上传进度id: " + id + ", 状态: " + state);
-                if (state != TransferState.IN_PROGRESS) {
-                    Log.d(TAG, "上传有进度变化，但是状态不是IN_PROGRESS, 所以取消告知Flutter端");
-                    return;
-                }
-                if (activity != null) {
-                    activity.runOnUiThread(() -> methodChannel.invokeMethod("upload_progress", new HashMap<String, Object>() {{
-                        put("uuid", uuid);
-                        put("totalBytesSent", bytesCurrent);
-                        put("totalBytesExpectedToSend", bytesTotal);
-                    }}));
-                }
-            }
-
-            @Override
-            public void onError(int id, Exception ex) {
-                Log.d(TAG, "上传出错了: " + ex.getMessage());
-                if (activity != null) {
-                    String finalInfo = ex.getMessage();
-                    activity.runOnUiThread(() -> {
-                        methodChannel.invokeMethod("upload_fail", new HashMap<String, Object>() {{
-                            put("uuid", uuid);
-                            put("error", finalInfo);
-                            put("canceled", false);
-                        }});
-                    });
-                }
-            }
-        });
+        task.setTransferListener(new UploadListener(uuid));
 
         result.success(task.getId());
     }
+
 
     private void pause(MethodCall call, MethodChannel.Result result) {
         if (transferUtility == null) {
@@ -340,4 +266,72 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
             result.success(null);
         }
     }
+
+
+    class UploadListener implements TransferListener {
+        private final String uuid;
+
+        UploadListener(String uuid) {
+            this.uuid = uuid;
+        }
+
+        @Override
+        public void onStateChanged(int id, TransferState state) {
+            Log.d(TAG, "上传状态变化: id = " + id + ", 状态: " + state.name());
+            HashMap<String, Object> result = new HashMap<String, Object>() {{
+                put("uuid", uuid);
+            }};
+            String invokeMethod = null;
+            if (state == TransferState.PAUSED) {
+                invokeMethod = "upload_fail";
+                result.put("error", state.name());
+                result.put("canceled", true);
+            } else if (state == TransferState.COMPLETED) {
+                invokeMethod = "upload_success";
+                result.put("result", "上传成功");
+
+            }
+            if (invokeMethod == null) {
+                return;
+            }
+
+            String finalInvokeMethod = invokeMethod;
+            activity.runOnUiThread(() -> methodChannel.invokeMethod(finalInvokeMethod, result));
+        }
+
+        @Override
+        public void onProgressChanged(int id, long bytesCurrent, long bytesTotal) {
+            TransferState state = transferUtility.getTransferById(id).getState();
+
+            Log.d(TAG, "上传进度id: " + id + ", 状态: " + state);
+            if (state != TransferState.IN_PROGRESS) {
+                Log.d(TAG, "上传有进度变化，但是状态不是IN_PROGRESS, 所以取消告知Flutter端");
+                return;
+            }
+            if (activity != null) {
+                activity.runOnUiThread(() -> methodChannel.invokeMethod("upload_progress", new HashMap<String, Object>() {{
+                    put("uuid", uuid);
+                    put("totalBytesSent", bytesCurrent);
+                    put("totalBytesExpectedToSend", bytesTotal);
+                }}));
+            }
+        }
+
+        @Override
+        public void onError(int id, Exception ex) {
+            Log.d(TAG, "上传出错了: " + ex.getMessage());
+            if (activity != null) {
+                String finalInfo = ex.getMessage();
+                activity.runOnUiThread(() -> {
+                    methodChannel.invokeMethod("upload_fail", new HashMap<String, Object>() {{
+                        put("uuid", uuid);
+                        put("error", finalInfo);
+                        put("canceled", false);
+                    }});
+                });
+            }
+        }
+    }
+
 }
+

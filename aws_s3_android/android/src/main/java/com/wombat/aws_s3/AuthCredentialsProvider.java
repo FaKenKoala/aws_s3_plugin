@@ -14,33 +14,37 @@ import org.json.JSONObject;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.util.Date;
 
 public class AuthCredentialsProvider implements AWSCredentialsProvider {
 
     private String mAuthServerUrl;
     private String mAuthorization;
 
-    private volatile CustomSessionCredentials credentials;
+    private volatile static CustomSessionCredentials credentials;
 
     public AuthCredentialsProvider(String authServerUrl, String authorization) {
         this.mAuthServerUrl = authServerUrl;
         this.mAuthorization = authorization;
+        credentials = null;
     }
 
     public void setAuthServerUrl(String authServerUrl) {
         this.mAuthServerUrl = authServerUrl;
+        credentials = null;
     }
 
     public void setAuthorization(String authorization) {
         this.mAuthorization = authorization;
+        credentials = null;
+    }
+
+    private static boolean validCredentials() {
+        return credentials != null && DateUtil.getFixedSkewedTimeMillis() / 1000 < credentials.getExpiration() - 5 * 60;
     }
 
     @Override
     public AWSCredentials getCredentials() {
-        if (credentials == null
-                || DateUtil.getFixedSkewedTimeMillis() / 1000 > credentials.getExpiration() - 5 * 60) {
-
+        if (!validCredentials()) {
             if (credentials != null) {
                 Log.d(TAG, "token过期了! current time: " + DateUtil.getFixedSkewedTimeMillis() / 1000 + " token expired: " + credentials.getExpiration());
             }
@@ -52,7 +56,14 @@ public class AuthCredentialsProvider implements AWSCredentialsProvider {
 
     @Override
     public void refresh() {
-        credentials = null;
+        refreshCredentials(mAuthServerUrl, mAuthorization);
+    }
+
+    private synchronized static void refreshCredentials(String mAuthServerUrl, String mAuthorization) {
+        if (validCredentials()) {
+            Log.d(TAG, "合法的credentials，不需要刷新了");
+            return;
+        }
         try {
             URL stsUrl = new URL(mAuthServerUrl);
             HttpURLConnection conn = (HttpURLConnection) stsUrl.openConnection();
@@ -87,6 +98,7 @@ public class AuthCredentialsProvider implements AWSCredentialsProvider {
 //            throw new ClientException(e);
             Log.d(TAG, "获取token出错Outer: " + e.getMessage());
         }
+
     }
 
 }
