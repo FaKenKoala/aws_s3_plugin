@@ -165,11 +165,12 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
         }
 
         ClientConfiguration clientConfiguration = new ClientConfiguration()
-                .withConnectionTimeout(60 * 1000)
-                .withSocketTimeout(60 * 1000)
+                .withConnectionTimeout(20 * 1000)
+                .withSocketTimeout(20 * 1000)
 //                .withCurlLogging(true)
                 .withMaxConnections(1)
-                .withMaxErrorRetry(2);
+//                .withMaxErrorRetry(10)
+                ;
         AmazonS3Client sS3Client = new AmazonS3Client(credentialsProvider, Region.getRegion(regionString), clientConfiguration);
         sS3Client.setEndpoint(endpoint);
         sS3Client.setNotificationThreshold(356 * KB);
@@ -318,7 +319,11 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
 
         @Override
         public void onProgressChanged(int id, long bytesCurrent, long bytesTotal) {
-            TransferState state = transferUtility.getTransferById(id).getState();
+            TransferObserver observer = transferUtility.getTransferById(id);
+            TransferState state = null;
+            if (observer != null) {
+                state = observer.getState();
+            }
 
             Log.d(TAG, "上传进度id: " + id + ", " + bytesCurrent + "/" + bytesTotal + ", 状态: " + state);
             if (state != TransferState.IN_PROGRESS) {
