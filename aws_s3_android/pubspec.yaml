@@ -9,7 +9,7 @@ environment:
 
 dependencies:
   aws_s3_platform_interface:
-    path: /Users/wombat/FlutterProjects/object_storage_service/aws_s3_plugin/aws_s3_platform_interface
+    path: ../aws_s3_platform_interface
   flutter:
     sdk: flutter
   plugin_platform_interface: ^2.0.2

@@ -1,6 +1,10 @@
 package com.wombat.aws_s3;
 
+import static com.amazonaws.services.s3.internal.Constants.KB;
+
 import android.app.Activity;
+import android.content.Intent;
+import android.text.format.Time;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
@@ -13,9 +17,11 @@ import com.amazonaws.auth.BasicSessionCredentials;
 import com.amazonaws.internal.StaticCredentialsProvider;
 import com.amazonaws.logging.LogFactory;
 import com.amazonaws.mobileconnectors.s3.transferutility.TransferListener;
+import com.amazonaws.mobileconnectors.s3.transferutility.TransferNetworkLossHandler;
 import com.amazonaws.mobileconnectors.s3.transferutility.TransferObserver;
+import com.amazonaws.mobileconnectors.s3.transferutility.TransferService;
 import com.amazonaws.mobileconnectors.s3.transferutility.TransferState;
-import com.amazonaws.mobileconnectors.s3.transferutility.TransferUtility;
+import com.amazonaws.mobileconnectors.s3.transferutility.CustomTransferUtility;
 import com.amazonaws.regions.Region;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.ObjectMetadata;
@@ -25,6 +31,8 @@ import com.amazonaws.util.Md5Utils;
 import java.io.File;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.net.URLEncoder;
 import java.util.HashMap;
 import java.util.Objects;
@@ -42,9 +50,11 @@ import io.flutter.plugin.common.MethodChannel.MethodCallHandler;
 public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAware {
     private MethodChannel methodChannel;
     private Activity activity;
-    private TransferUtility transferUtility;
+    private CustomTransferUtility transferUtility;
     public static String bucket;
     public static String TAG = "AwsS3Plugin";
+    // 从暂停到恢复上传的操作，在监听状态变化中会返回一次paused状态，根据resumeOp这个flag来拦截，避免界面返回暂停/恢复变化
+    private boolean resumeOp = false;
 
     @Override
     public void onAttachedToEngine(@NonNull FlutterPluginBinding binding) {
@@ -64,6 +74,8 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
     @Override
     public void onAttachedToActivity(@NonNull ActivityPluginBinding binding) {
         activity = binding.getActivity();
+        activity.getApplicationContext().startService(new Intent(activity.getApplicationContext(), TransferService.class));
+        TransferNetworkLossHandler.getInstance(activity.getApplicationContext());
     }
 
     @Override
@@ -126,6 +138,7 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
     }
 
     private void initialize(MethodCall call, MethodChannel.Result result) {
+
         String endpoint = call.argument("endpoint");
         String regionString = call.argument("region");
         if (regionString == null) {
@@ -152,14 +165,16 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
         }
 
         ClientConfiguration clientConfiguration = new ClientConfiguration()
-                .withConnectionTimeout(20 * 1000)
-                .withSocketTimeout(20 * 1000)
-//                .withMaxConnections(5)
-                ;
+                .withConnectionTimeout(60 * 1000)
+                .withSocketTimeout(60 * 1000)
+//                .withCurlLogging(true)
+                .withMaxConnections(1)
+                .withMaxErrorRetry(2);
         AmazonS3Client sS3Client = new AmazonS3Client(credentialsProvider, Region.getRegion(regionString), clientConfiguration);
         sS3Client.setEndpoint(endpoint);
+        sS3Client.setNotificationThreshold(356 * KB);
 
-        transferUtility = TransferUtility.builder()
+        transferUtility = CustomTransferUtility.builder()
                 .context(activity.getApplicationContext())
                 .defaultBucket(bucket)
                 .s3Client(sS3Client)
@@ -176,12 +191,10 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
         String uuid = call.argument("uuid");
         int taskId = 0;
         try {
-            taskId = Integer.parseInt((String) Objects.requireNonNull(call.argument("taskId")));
+            taskId = Integer.parseInt(Objects.requireNonNull(call.argument("taskId")));
         } catch (Exception ex) {
-            ex.printStackTrace();
+            Log.d(TAG, "不合法Number");
         }
-        Log.d(TAG, "开始上传uuid: " + uuid + ", id = " + taskId);
-
         // 判断是否有id = taskId, 状态是暂停/取消/失败状态的任务
         TransferObserver observer = transferUtility.getTransferById(taskId);
         if (observer != null) {
@@ -189,6 +202,7 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
             observer = transferUtility.resume(taskId);
             if (observer != null) {
                 Log.d(TAG, "有旧上传，进行恢复或重试: id = " + taskId + ", 状态: " + state + ", 恢复后状态: " + observer.getState());
+                resumeOp = true;
                 observer.setTransferListener(new UploadListener(uuid));
                 result.success(taskId);
                 return;
@@ -200,7 +214,7 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
     }
 
     private void newUpload(String fileName, String filePath, String objectKey, String uuid, MethodChannel.Result result) {
-        Log.d(TAG, "新上传");
+        Log.d(TAG, "新上传：objectKey=" + objectKey + ", uuid=" + uuid);
         // 添加文件名 + 文件md5 + 文件类型 + 文件大小
         ObjectMetadata metadata = new ObjectMetadata();
         // 文件名
@@ -219,20 +233,20 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
 
     private void pause(MethodCall call, MethodChannel.Result result) {
         if (transferUtility == null) {
-            Log.i(TAG, "transferUtility 还没有初始化");
+            Log.d(TAG, "transferUtility 还没有初始化");
             result.success(null);
             return;
         }
         int taskId = 0;
         try {
-            taskId = Integer.parseInt((String) Objects.requireNonNull(call.argument("taskId")));
+            taskId = Integer.parseInt(Objects.requireNonNull(call.argument("taskId")));
         } catch (Exception ex) {
-            ex.printStackTrace();
+            Log.d(TAG, "不合法Number");
         }
         TransferObserver observer = transferUtility.getTransferById(taskId);
         if (observer != null) {
             boolean pauseResult = transferUtility.pause(taskId);
-            Log.i(TAG, "taskId: " + taskId + ", 暂停结果: " + pauseResult);
+            Log.d(TAG, "taskId: " + taskId + ", 暂停结果: " + pauseResult);
             result.success(taskId);
         } else {
             result.success(null);
@@ -241,21 +255,21 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
 
     private void delete(MethodCall call, MethodChannel.Result result) {
         if (transferUtility == null) {
-            Log.i(TAG, "transferUtility 还没有初始化");
+            Log.d(TAG, "transferUtility 还没有初始化");
             result.success(null);
             return;
         }
         int taskId = 0;
         String uuid = call.argument("uuid");
         try {
-            taskId = Integer.parseInt((String) Objects.requireNonNull(call.argument("taskId")));
+            taskId = Integer.parseInt(Objects.requireNonNull(call.argument("taskId")));
         } catch (Exception ex) {
-            ex.printStackTrace();
+            Log.d(TAG, "不合法Number");
         }
         TransferObserver observer = transferUtility.getTransferById(taskId);
         if (observer != null) {
             boolean deleteResult = transferUtility.deleteTransferRecord(taskId);
-            Log.i(TAG, "taskId: " + taskId + ", 删除结果: " + deleteResult);
+            Log.d(TAG, "taskId: " + taskId + ", 删除结果: " + deleteResult);
             result.success(taskId);
             activity.runOnUiThread(() -> methodChannel.invokeMethod("upload_fail", new HashMap<String, Object>() {{
                 put("uuid", uuid);
@@ -277,15 +291,18 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
 
         @Override
         public void onStateChanged(int id, TransferState state) {
-            Log.d(TAG, "上传状态变化: id = " + id + ", 状态: " + state.name());
+            Log.d(TAG, new Time() + " 上传状态变化: id = " + id + ", 状态: " + state.name());
             HashMap<String, Object> result = new HashMap<String, Object>() {{
                 put("uuid", uuid);
             }};
             String invokeMethod = null;
             if (state == TransferState.PAUSED) {
-                invokeMethod = "upload_fail";
-                result.put("error", state.name());
-                result.put("canceled", true);
+                if (!resumeOp) {
+                    invokeMethod = "upload_fail";
+                    result.put("error", state.name());
+                    result.put("canceled", true);
+                }
+                resumeOp = false;
             } else if (state == TransferState.COMPLETED) {
                 invokeMethod = "upload_success";
                 result.put("result", "上传成功");
@@ -303,7 +320,7 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
         public void onProgressChanged(int id, long bytesCurrent, long bytesTotal) {
             TransferState state = transferUtility.getTransferById(id).getState();
 
-            Log.d(TAG, "上传进度id: " + id + ", 状态: " + state);
+            Log.d(TAG, "上传进度id: " + id + ", " + bytesCurrent + "/" + bytesTotal + ", 状态: " + state);
             if (state != TransferState.IN_PROGRESS) {
                 Log.d(TAG, "上传有进度变化，但是状态不是IN_PROGRESS, 所以取消告知Flutter端");
                 return;
@@ -334,4 +351,3 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
     }
 
 }
-

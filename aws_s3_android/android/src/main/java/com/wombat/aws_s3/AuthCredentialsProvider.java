@@ -4,6 +4,8 @@ import static com.wombat.aws_s3.AwsS3Plugin.TAG;
 
 import android.util.Log;
 
+import androidx.annotation.NonNull;
+
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.BasicSessionCredentials;
@@ -20,7 +22,8 @@ public class AuthCredentialsProvider implements AWSCredentialsProvider {
     private String mAuthServerUrl;
     private String mAuthorization;
 
-    private volatile static CustomSessionCredentials credentials;
+    private volatile CustomSessionCredentials credentials;
+    private static final Object lock = new Object();
 
     public AuthCredentialsProvider(String authServerUrl, String authorization) {
         this.mAuthServerUrl = authServerUrl;
@@ -38,37 +41,32 @@ public class AuthCredentialsProvider implements AWSCredentialsProvider {
         credentials = null;
     }
 
-    private static boolean validCredentials() {
+    private boolean validCredentials() {
         return credentials != null && DateUtil.getFixedSkewedTimeMillis() / 1000 < credentials.getExpiration() - 5 * 60;
     }
 
     @Override
     public AWSCredentials getCredentials() {
-        if (!validCredentials()) {
-            if (credentials != null) {
-                Log.d(TAG, "token过期了! current time: " + DateUtil.getFixedSkewedTimeMillis() / 1000 + " token expired: " + credentials.getExpiration());
+        synchronized (lock) {
+            if (!validCredentials()) {
+                if (credentials != null) {
+                    Log.d(TAG, "token过期了! current time: " + DateUtil.getFixedSkewedTimeMillis() / 1000 + " token expired: " + credentials.getExpiration());
+                }
+                refresh();
             }
-            refresh();
         }
-//        Log.d(TAG, "最终的token: " + credentials);
         return credentials;
     }
 
     @Override
     public void refresh() {
-        refreshCredentials(mAuthServerUrl, mAuthorization);
-    }
-
-    private synchronized static void refreshCredentials(String mAuthServerUrl, String mAuthorization) {
-        if (validCredentials()) {
-            Log.d(TAG, "合法的credentials，不需要刷新了");
-            return;
-        }
+        Log.d(TAG, "不同part的CredentialsProvider: " + this.hashCode());
         try {
             URL stsUrl = new URL(mAuthServerUrl);
             HttpURLConnection conn = (HttpURLConnection) stsUrl.openConnection();
             conn.setRequestProperty("Authorization", mAuthorization);
-            conn.setConnectTimeout(10000);
+            conn.setConnectTimeout(10 * 1000);
+            conn.setReadTimeout(10 * 1000);
             InputStream input = conn.getInputStream();
 
             String authData = IOUtils.toString(input);
@@ -85,22 +83,18 @@ public class AuthCredentialsProvider implements AWSCredentialsProvider {
                 String bucket = jsonObj.getString("bucket");
                 String region = jsonObj.getString("region");
                 String endpoint = jsonObj.getString("endpoint");
-                // 测试用30s后过期
-//                expiration = System.currentTimeMillis() + 30 *1000;
                 credentials = new CustomSessionCredentials(ak, sk, token, expiration / 1000);
             } else {
                 String errorCode = jsonObjOut.getString("ErrorCode");
                 String errorMessage = jsonObjOut.getString("ErrorMessage");
-//                throw new ClientException("ErrorCode: " + errorCode + "| ErrorMessage: " + errorMessage);
                 Log.d(TAG, "获取token出错Inner: ErrorCode: " + errorCode + "| ErrorMessage: " + errorMessage);
+                throw new Exception("ErrorCode: " + errorCode + "| ErrorMessage: " + errorMessage);
             }
         } catch (Exception e) {
-//            throw new ClientException(e);
             Log.d(TAG, "获取token出错Outer: " + e.getMessage());
+            throw new RuntimeException(e.getMessage());
         }
-
     }
-
 }
 
 class CustomSessionCredentials extends BasicSessionCredentials {
@@ -112,14 +106,11 @@ class CustomSessionCredentials extends BasicSessionCredentials {
         this.expiration = expiration;
     }
 
-    public void setExpiration(long expiration) {
-        this.expiration = expiration;
-    }
-
     public long getExpiration() {
         return expiration;
     }
 
+    @NonNull
     @Override
     public String toString() {
         return "OSSFederationToken [tempAk=" + getAWSAccessKeyId() + ", tempSk=" + getAWSSecretKey() + ", securityToken="
