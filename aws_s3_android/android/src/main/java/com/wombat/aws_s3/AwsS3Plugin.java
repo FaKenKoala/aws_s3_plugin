@@ -169,7 +169,7 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
                 .withSocketTimeout(20 * 1000)
 //                .withCurlLogging(true)
                 .withMaxConnections(1)
-//                .withMaxErrorRetry(10)
+                .withMaxErrorRetry(Integer.MAX_VALUE)
                 ;
         AmazonS3Client sS3Client = new AmazonS3Client(credentialsProvider, Region.getRegion(regionString), clientConfiguration);
         sS3Client.setEndpoint(endpoint);
@@ -298,6 +298,7 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
             }};
             String invokeMethod = null;
             if (state == TransferState.PAUSED) {
+                resumeOp = false;
                 if (!resumeOp) {
                     invokeMethod = "upload_fail";
                     result.put("error", state.name());
