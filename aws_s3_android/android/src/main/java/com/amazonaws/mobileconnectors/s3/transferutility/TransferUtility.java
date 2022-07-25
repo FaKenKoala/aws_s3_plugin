@@ -43,6 +43,7 @@ import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.amazonaws.services.s3.internal.Constants.KB;
 import static com.amazonaws.services.s3.internal.Constants.MAXIMUM_UPLOAD_PARTS;
 import static com.amazonaws.services.s3.internal.Constants.MB;
 
@@ -773,7 +774,8 @@ public class TransferUtility {
         long remainingLenth = file.length();
         double partSize = (double) remainingLenth / (double) MAXIMUM_UPLOAD_PARTS;
         partSize = Math.ceil(partSize);
-        final long optimalPartSize = (long) Math.max(partSize, MINIMUM_UPLOAD_PART_SIZE);
+//        final long optimalPartSize = (long) Math.max(partSize, MINIMUM_UPLOAD_PART_SIZE);
+        final long optimalPartSize = 356 * KB;
         long fileOffset = 0;
         int partNumber = 1;
 

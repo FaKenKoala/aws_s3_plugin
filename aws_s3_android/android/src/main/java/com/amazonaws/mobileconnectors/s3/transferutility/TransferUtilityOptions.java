@@ -23,7 +23,7 @@ import java.io.Serializable;
  *
  * <pre>
  * Create TransferUtilityOptions and pass it to {@link TransferUtility}.
- * 
+ *
  * TransferUtilityOptions tuOptions = new TransferUtilityOptions();
  * tuOptions.setTransferThreadPoolSize(10); // 10 threads for upload and download operations.
  *
@@ -35,7 +35,6 @@ import java.io.Serializable;
  *     .transferUtilityConfiguration(tuOptions)
  *     .build();
  * </pre>
- *
  */
 public class TransferUtilityOptions implements Serializable {
 
@@ -58,7 +57,7 @@ public class TransferUtilityOptions implements Serializable {
      */
     @Deprecated
     private long transferServiceCheckTimeInterval;
-    
+
     /**
      * Number of threads in the pool for the all the transfers.
      */
@@ -68,7 +67,7 @@ public class TransferUtilityOptions implements Serializable {
      * Type of connection to use for transfers.
      */
     protected TransferNetworkConnectionType transferNetworkConnectionType;
-    
+
     /**
      * Constructor that sets the options to the
      * default values.
@@ -84,10 +83,10 @@ public class TransferUtilityOptions implements Serializable {
      * Constructor that sets the options to the
      * default values.
      *
-     * @param transferThreadPoolSize number of threads in the pool
+     * @param transferThreadPoolSize        number of threads in the pool
      * @param transferNetworkConnectionType type of network connection
      */
-    public TransferUtilityOptions(int transferThreadPoolSize, 
+    public TransferUtilityOptions(int transferThreadPoolSize,
                                   TransferNetworkConnectionType transferNetworkConnectionType) {
         super();
         this.transferServiceCheckTimeInterval = getDefaultCheckTimeInterval();
@@ -97,9 +96,8 @@ public class TransferUtilityOptions implements Serializable {
 
     /**
      * Retrieve the transfer service check time interval.
-     * 
-     * @return the transferServiceCheckTimeInterval
      *
+     * @return the transferServiceCheckTimeInterval
      * @deprecated This feature is deprecated since {@code TransferService} is
      * changed to only support network connectivity changes.
      */
@@ -110,9 +108,8 @@ public class TransferUtilityOptions implements Serializable {
 
     /**
      * Set the transfer service check time interval.
-     * 
-     * @param transferServiceCheckTimeInterval the transferServiceCheckTimeInterval to set
      *
+     * @param transferServiceCheckTimeInterval the transferServiceCheckTimeInterval to set
      * @deprecated This feature is deprecated since {@code TransferService} is
      * changed to only support network connectivity changes.
      */
@@ -123,7 +120,7 @@ public class TransferUtilityOptions implements Serializable {
 
     /**
      * Retrieve the transfer thread pool size.
-     * 
+     *
      * @return the transferThreadPoolSize
      */
     public int getTransferThreadPoolSize() {
@@ -133,7 +130,7 @@ public class TransferUtilityOptions implements Serializable {
     /**
      * Set the transfer thread pool size. If it's negative, then
      * set the default value.
-     * 
+     *
      * @param transferThreadPoolSize the transferThreadPoolSize to set
      */
     public void setTransferThreadPoolSize(final int transferThreadPoolSize) {
@@ -155,19 +152,18 @@ public class TransferUtilityOptions implements Serializable {
 
     /**
      * Return the default thread pool size.
-     * 
+     *
      * @return 2 * (Number of available processors + 1)
      */
     static int getDefaultThreadPoolSize() {
-        return 1;
 //        return 2 * (Runtime.getRuntime().availableProcessors() + 1);
+        return 1;
     }
 
     /**
      * Return the default check time interval.
-     * 
-     * @return The default check time interval in milliseconds.
      *
+     * @return The default check time interval in milliseconds.
      * @deprecated This feature is deprecated since {@code TransferService} is
      * changed to only support network connectivity changes.
      */

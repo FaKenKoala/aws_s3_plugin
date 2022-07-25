@@ -21,7 +21,7 @@ import com.amazonaws.mobileconnectors.s3.transferutility.TransferNetworkLossHand
 import com.amazonaws.mobileconnectors.s3.transferutility.TransferObserver;
 import com.amazonaws.mobileconnectors.s3.transferutility.TransferService;
 import com.amazonaws.mobileconnectors.s3.transferutility.TransferState;
-import com.amazonaws.mobileconnectors.s3.transferutility.CustomTransferUtility;
+import com.amazonaws.mobileconnectors.s3.transferutility.TransferUtility;
 import com.amazonaws.regions.Region;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.ObjectMetadata;
@@ -31,8 +31,6 @@ import com.amazonaws.util.Md5Utils;
 import java.io.File;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
-import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
 import java.net.URLEncoder;
 import java.util.HashMap;
 import java.util.Objects;
@@ -50,7 +48,7 @@ import io.flutter.plugin.common.MethodChannel.MethodCallHandler;
 public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAware {
     private MethodChannel methodChannel;
     private Activity activity;
-    private CustomTransferUtility transferUtility;
+    private TransferUtility transferUtility;
     public static String bucket;
     public static String TAG = "AwsS3Plugin";
     // 从暂停到恢复上传的操作，在监听状态变化中会返回一次paused状态，根据resumeOp这个flag来拦截，避免界面返回暂停/恢复变化
@@ -175,7 +173,7 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
         sS3Client.setEndpoint(endpoint);
         sS3Client.setNotificationThreshold(356 * KB);
 
-        transferUtility = CustomTransferUtility.builder()
+        transferUtility = TransferUtility.builder()
                 .context(activity.getApplicationContext())
                 .defaultBucket(bucket)
                 .s3Client(sS3Client)
