@@ -35,6 +35,6 @@ android {
 }
 
 dependencies {
-    implementation 'com.amazonaws:aws-android-sdk-s3:2.49.0'
-    implementation 'com.amazonaws:aws-android-sdk-mobile-client:2.49.0'
+    implementation 'com.amazonaws:aws-android-sdk-s3:2.50.0'
+    implementation 'com.amazonaws:aws-android-sdk-mobile-client:2.50.0'
 }

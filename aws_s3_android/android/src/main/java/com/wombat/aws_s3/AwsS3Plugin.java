@@ -327,8 +327,8 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
 
             Log.d(TAG, "上传进度id: " + id + ", " + bytesCurrent + "/" + bytesTotal + ", 状态: " + state);
             if (state != TransferState.IN_PROGRESS) {
-                Log.d(TAG, "上传有进度变化，但是状态不是IN_PROGRESS, 所以取消告知Flutter端");
-                return;
+                Log.d(TAG, "上传有进度变化，但是状态不是IN_PROGRESS, 所以应该取消告知Flutter端");
+//                return;
             }
             if (activity != null) {
                 activity.runOnUiThread(() -> methodChannel.invokeMethod("upload_progress", new HashMap<String, Object>() {{
