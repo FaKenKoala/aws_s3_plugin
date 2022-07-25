@@ -298,7 +298,6 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
             }};
             String invokeMethod = null;
             if (state == TransferState.PAUSED) {
-                resumeOp = false;
                 if (!resumeOp) {
                     invokeMethod = "upload_fail";
                     result.put("error", state.name());
