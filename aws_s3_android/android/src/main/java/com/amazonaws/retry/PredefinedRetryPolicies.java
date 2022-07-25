@@ -169,12 +169,10 @@ public class PredefinedRetryPolicies {
                                    AmazonClientException exception,
                                    int retriesAttempted) {
 
-            Log.d("重试", "异常: " + exception);
             // Always retry on client exceptions caused by IOException, unless
             // it's caused by a thread interruption
             if ((exception.getCause() instanceof IOException)
                     && !(exception.getCause() instanceof InterruptedIOException)) {
-                Log.d("重试", "IOException: " + exception.getCause());
                 return true;
             }
 
@@ -193,7 +191,6 @@ public class PredefinedRetryPolicies {
                         || statusCode == HttpURLConnection.HTTP_UNAVAILABLE
                         || statusCode == HttpURLConnection.HTTP_BAD_GATEWAY
                         || statusCode == HttpURLConnection.HTTP_GATEWAY_TIMEOUT) {
-                    Log.d("重试", "状态码: " + statusCode);
                     return true;
                 }
 
@@ -204,7 +201,6 @@ public class PredefinedRetryPolicies {
                  * request to get through the next time.
                  */
                 if (RetryUtils.isThrottlingException(ase)) {
-                    Log.d("重试", "请求抖动");
                     return true;
                 }
 
@@ -214,12 +210,10 @@ public class PredefinedRetryPolicies {
                  * clock skew and then retry the request.
                  */
                 if (RetryUtils.isClockSkewError(ase)) {
-                    Log.d("重试", "时间倾斜?");
                     return true;
                 }
             }
-            Log.d("重试", "强制重试");
-            return true;
+            return false;
         }
 
     }

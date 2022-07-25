@@ -601,8 +601,6 @@ public class AmazonHttpClient {
             maxErrorRetry = retryPolicy.getMaxErrorRetry();
         }
 
-        log.debug("*****-----*****重试次数: " + maxErrorRetry);
-
         // Immediately fails when it has exceeds the max retry count.
         if (retries >= maxErrorRetry) {
             return false;
