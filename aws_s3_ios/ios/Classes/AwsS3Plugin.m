@@ -40,8 +40,8 @@ NSString *const TransferUtilityName = @"com.wombat/aws_s3_plugin";
   return ^(AWSS3TransferUtilityMultiPartUploadTask *task, NSProgress *progress) {
     NSLog(@"文件上传进度更新，状态: %ld, uuid: %@, transferID: %@, taskIdentifier: %lu", [task status], uuid, [task transferID], (long)[task taskIdentifier]);
     if (task.status != AWSS3TransferUtilityTransferStatusInProgress){
-      NSLog(@"状态不是IN_PROGRESS, 应该不更新UI的");
-//      return;
+      NSLog(@"上传有进度变化，但是状态不是IN_PROGRESS, 所以取消告知Flutter端");
+      return;
     }
     dispatch_async(dispatch_get_main_queue(), ^{
       [self->_mainChannel invokeMethod:@"upload_progress" arguments:@{
