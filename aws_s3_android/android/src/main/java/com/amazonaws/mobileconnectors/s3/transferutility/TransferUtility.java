@@ -774,8 +774,9 @@ public class TransferUtility {
         long remainingLenth = file.length();
         double partSize = (double) remainingLenth / (double) MAXIMUM_UPLOAD_PARTS;
         partSize = Math.ceil(partSize);
-//        final long optimalPartSize = (long) Math.max(partSize, MINIMUM_UPLOAD_PART_SIZE);
-        final long optimalPartSize = 356 * KB;
+        final long optimalPartSize = (long) Math.max(partSize, MINIMUM_UPLOAD_PART_SIZE);
+        // 设置这个东西，最终completeMultiPartUpload会报EntityTooSmall错误，还是得用原本的逻辑
+        // final long optimalPartSize = 356 * KB;
         long fileOffset = 0;
         int partNumber = 1;
 
