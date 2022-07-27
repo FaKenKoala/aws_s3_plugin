@@ -248,7 +248,7 @@ public class FacebookSignInProvider implements SignInProvider {
             return accessToken.getToken();
         }
 
-        Log.i(LOG_TAG, "Facebook provider refreshing token...");
+        Log.d(LOG_TAG, "Facebook provider refreshing token...");
         final CountDownLatch countDownLatch = new CountDownLatch(1);
 
         // The constructor of the AccessTokenTracker creates a broadcast receiver that keeps this class
@@ -265,7 +265,7 @@ public class FacebookSignInProvider implements SignInProvider {
                     // back to the sign-in page.
                     Log.d(LOG_TAG, "Facebook token can't be refreshed, perhaps the user revoked permissions.");
                 } else {
-                    Log.i(LOG_TAG, "Facebook provider token has been updated.");
+                    Log.d(LOG_TAG, "Facebook provider token has been updated.");
                 }
                 countDownLatch.countDown();
             }

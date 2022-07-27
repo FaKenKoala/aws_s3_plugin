@@ -245,7 +245,7 @@ public class CognitoUserPoolsSignInProvider implements SignInProvider {
     private GenericHandler signUpConfirmationHandler = new GenericHandler() {
         @Override
         public void onSuccess() {
-            Log.i(LOG_TAG, "Confirmed.");
+            Log.d(LOG_TAG, "Confirmed.");
             ViewHelper.showDialog(activity, activity.getString(R.string.title_activity_sign_up_confirm),
                     activity.getString(R.string.sign_up_confirm_success));
             final CognitoUser cognitoUser = cognitoUserPool.getUser(username);
@@ -291,7 +291,7 @@ public class CognitoUserPoolsSignInProvider implements SignInProvider {
     private AuthenticationHandler authenticationHandler = new AuthenticationHandler() {
         @Override
         public void onSuccess(final CognitoUserSession userSession, final CognitoDevice newDevice) {
-            Log.i(LOG_TAG, "Logged in. " + userSession.getIdToken());
+            Log.d(LOG_TAG, "Logged in. " + userSession.getIdToken());
 
             cognitoUserSession = userSession;
 
@@ -614,11 +614,11 @@ public class CognitoUserPoolsSignInProvider implements SignInProvider {
         cognitoUserPool.getCurrentUser().getSession(refreshSessionAuthenticationHandler);
         if (null != refreshSessionAuthenticationHandler.getUserSession()) {
             cognitoUserSession = refreshSessionAuthenticationHandler.getUserSession();
-            Log.i(LOG_TAG, "refreshUserSignInState: Signed in with Cognito.");
+            Log.d(LOG_TAG, "refreshUserSignInState: Signed in with Cognito.");
             return true;
         }
 
-        Log.i(LOG_TAG, "refreshUserSignInState: Not signed in with Cognito.");
+        Log.d(LOG_TAG, "refreshUserSignInState: Not signed in with Cognito.");
         cognitoUserSession = null;
         return false;
     }

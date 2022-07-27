@@ -280,7 +280,7 @@ public class GoogleSignInProvider implements SignInProvider, SignInPermissionsHa
                     new GoogleSignInException(result));
             }
 
-            Log.i(LOG_TAG, "Successful GoogleSignInResult, status=" + result.getStatus().toString());
+            Log.d(LOG_TAG, "Successful GoogleSignInResult, status=" + result.getStatus().toString());
 
             new Thread(new Runnable() {
                 @Override
@@ -389,7 +389,7 @@ public class GoogleSignInProvider implements SignInProvider, SignInPermissionsHa
                     }
                     initiateGoogleSignIn(activity);
                 } else {
-                    Log.i(LOG_TAG, "Permissions not granted for Google sign-in.");
+                    Log.d(LOG_TAG, "Permissions not granted for Google sign-in.");
                     signingIn = false;
                 }
             }
@@ -404,7 +404,7 @@ public class GoogleSignInProvider implements SignInProvider, SignInPermissionsHa
         if (signedInAccount != null) {
             accountEmail = signedInAccount.getEmail();
         } else {
-            Log.i(LOG_TAG, "GoogleSignInResult indicates not signed in with an account: "
+            Log.d(LOG_TAG, "GoogleSignInResult indicates not signed in with an account: "
                 + result.getStatus().toString());
             authToken = null;
             return false;
@@ -447,7 +447,7 @@ public class GoogleSignInProvider implements SignInProvider, SignInPermissionsHa
         if (signedInAccount != null) {
             accountEmail = signedInAccount.getEmail();
         } else {
-            Log.i(LOG_TAG, "GoogleSignInResult indicates not signed in with an account.");
+            Log.d(LOG_TAG, "GoogleSignInResult indicates not signed in with an account.");
             final GoogleSignInException ex = new GoogleSignInException(result);
             Log.d(LOG_TAG, ex.getMessage(), ex);
 

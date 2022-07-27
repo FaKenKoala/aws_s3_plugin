@@ -99,14 +99,14 @@ public class AndroidLog implements com.amazonaws.logging.Log {
     @Override
     public void info(Object message) {
         if (getLevel() == null || getLevel().getValue() <= LogFactory.Level.INFO.getValue()) {
-            Log.i(tag, message.toString());
+            Log.d(tag, message.toString());
         }
     }
 
     @Override
     public void info(Object message, Throwable t) {
         if (getLevel() == null || getLevel().getValue() <= LogFactory.Level.INFO.getValue()) {
-            Log.i(tag, message.toString(), t);
+            Log.d(tag, message.toString(), t);
         }
     }
 

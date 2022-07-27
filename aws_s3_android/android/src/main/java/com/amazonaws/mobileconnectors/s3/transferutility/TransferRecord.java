@@ -90,6 +90,8 @@ class TransferRecord {
 
     private Gson gson = new Gson();
 
+    private boolean pauseFlag = false;
+
     /**
      * Constructs a TransferRecord and initializes the transfer id and S3
      * client.
@@ -206,11 +208,20 @@ class TransferRecord {
                 && !TransferState.PENDING_PAUSE.equals(state)) {
             updater.updateState(id, TransferState.PENDING_PAUSE);
             if (isRunning()) {
-                submittedTask.cancel(true);
+                submittedTask.cancel(false);
+                setPauseFlag(true);
             }
             return true;
         }
         return false;
+    }
+
+    public void setPauseFlag(boolean pauseFlag) {
+        this.pauseFlag = pauseFlag;
+    }
+
+    public boolean getPauseFlag() {
+        return pauseFlag;
     }
 
     /**

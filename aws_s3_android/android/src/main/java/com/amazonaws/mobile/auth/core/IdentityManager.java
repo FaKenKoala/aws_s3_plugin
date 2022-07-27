@@ -796,7 +796,7 @@ public class IdentityManager {
                     try {
                         Thread.sleep(minimumDelay);
                     } catch (final InterruptedException ex) {
-                        Log.i(LOG_TAG, "Interrupted while waiting for resume session timeout.");
+                        Log.d(LOG_TAG, "Interrupted while waiting for resume session timeout.");
                     }
                 }
 

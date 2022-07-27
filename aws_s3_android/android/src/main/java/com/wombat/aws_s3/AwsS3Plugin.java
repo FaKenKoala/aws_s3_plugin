@@ -58,10 +58,6 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
     // 从暂停到恢复上传的操作，在监听状态变化中会返回一次paused状态，根据resumeOp这个flag来拦截，避免界面返回暂停/恢复变化
     private final List<TaskData> taskDataList = new ArrayList<>();
     private final UploadListener uploadListener = new UploadListener();
-    private AmazonS3Client s3Client;
-    private CustomTransferUtility uploadTask;
-
-    private final boolean useCustomUpload = true;
 
     @Override
     public void onAttachedToEngine(@NonNull FlutterPluginBinding binding) {
@@ -172,10 +168,12 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
         }
 
         ClientConfiguration clientConfiguration = new ClientConfiguration()
-                .withCurlLogging(true)
+                .withConnectionTimeout(60 * 1000)
+                .withSocketTimeout(60 * 1000)
+//                .withCurlLogging(true)
                 .withMaxConnections(1)
-                .withRetryPolicy(new RetryPolicy(null, null, 3, false));
-        s3Client = new AmazonS3Client(credentialsProvider, Region.getRegion(regionString), clientConfiguration);
+                .withRetryPolicy(new RetryPolicy(null, null, 1, false));
+        AmazonS3Client s3Client = new AmazonS3Client(credentialsProvider, Region.getRegion(regionString), clientConfiguration);
         s3Client.setEndpoint(Objects.requireNonNull(endpoint));
         s3Client.setNotificationThreshold(356 * KB);
 
@@ -190,29 +188,6 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
 
     }
 
-    private void notifyProgress(String uuid, long filePosition, long contentLength) {
-        activity.runOnUiThread(() -> methodChannel.invokeMethod("upload_progress", new HashMap<String, Object>() {{
-            put("uuid", uuid);
-            put("totalBytesSent", filePosition);
-            put("totalBytesExpectedToSend", contentLength);
-        }}));
-    }
-
-    private void notifySuccess(String uuid) {
-        activity.runOnUiThread(() -> methodChannel.invokeMethod("upload_success", new HashMap<String, Object>() {{
-            put("uuid", uuid);
-            put("result", "upload success");
-        }}));
-    }
-
-    private void notifyFail(String uuid, boolean pause) {
-        activity.runOnUiThread(() -> methodChannel.invokeMethod("upload_fail", new HashMap<String, Object>() {{
-            put("uuid", uuid);
-            put("error", "pause");
-            put("canceled", pause);
-        }}));
-    }
-
     private void upload(MethodCall call, MethodChannel.Result result) {
         try {
             String fileName = call.argument("fileName");
@@ -220,24 +195,12 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
             String objectKey = call.argument("objectKey");
             String uuid = call.argument("uuid");
 
-            if (useCustomUpload) {
-                if (uploadTask == null) {
-                    uploadTask = new CustomTransferUtility(fileName, filePath, objectKey, uuid);
-                    int taskId = uploadTask.upload();
-                    result.success(taskId);
-                } else {
-                    uploadTask.resume();
-                    result.success(uploadTask.taskId);
-                }
-                return;
-            }
-
             int taskId = 0;
 
             try {
                 taskId = Integer.parseInt(Objects.requireNonNull(call.argument("taskId")));
             } catch (Exception ex) {
-                Log.i(TAG, "不合法Number");
+                Log.d(TAG, "不合法Number");
             }
             // 判断是否有id = taskId, 状态是暂停/取消/失败状态的任务
             TaskData taskData = null;
@@ -258,9 +221,8 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
             }
 
             if (taskData != null) {
-                Log.i(TAG, "有旧上传，进行恢复或重试: uuid = " + uuid + ", id = " + taskId + ", 状态: " + taskData.getObserver().getState());
+                Log.d(TAG, "有旧上传，进行恢复或重试: uuid = " + uuid + ", id = " + taskId + ", 状态: " + taskData.getObserver().getState());
                 transferUtility.resume(taskId);
-//                taskData.setResumeOp(true);
                 result.success(taskId);
                 return;
             }
@@ -268,12 +230,12 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
             // 新上传
             newUpload(fileName, filePath, objectKey, uuid, result);
         } catch (Exception e) {
-            Log.i(TAG, "上传出错了: " + e.getMessage());
+            Log.d(TAG, "上传出错了: " + e.getMessage());
         }
     }
 
     private void newUpload(String fileName, String filePath, String objectKey, String uuid, MethodChannel.Result result) {
-        Log.i(TAG, "新上传：objectKey=" + objectKey + ", uuid=" + uuid);
+        Log.d(TAG, "新上传：objectKey=" + objectKey + ", uuid=" + uuid);
         // 添加文件名 + 文件md5 + 文件类型 + 文件大小
         ObjectMetadata metadata = new ObjectMetadata();
         // 文件名
@@ -291,7 +253,7 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
 
     private void pause(MethodCall call, MethodChannel.Result result) {
         if (transferUtility == null) {
-            Log.i(TAG, "transferUtility 还没有初始化");
+            Log.d(TAG, "transferUtility 还没有初始化");
             result.success(null);
             return;
         }
@@ -301,32 +263,17 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
         try {
             taskId = Integer.parseInt(Objects.requireNonNull(call.argument("taskId")));
         } catch (Exception ex) {
-            Log.i(TAG, "不合法Number");
-        }
-
-        if (useCustomUpload) {
-            if (uploadTask != null && uploadTask.uuid.equals(uuid)) {
-                uploadTask.pause();
-                result.success(-1);
-            } else {
-                result.success(null);
-            }
-            return;
+            Log.d(TAG, "不合法Number");
         }
 
         TaskData taskData = getTaskDataByUuid(uuid);
-        if (taskData == null) {
-            TransferObserver observer = transferUtility.getTransferById(taskId);
-            if (observer != null) {
-                taskData = new TaskData(uuid, observer);
-                taskDataList.add(taskData);
-            }
-        }
+        TransferObserver observer = taskData != null ? taskData.observer : transferUtility.getTransferById(taskId);
 
-        if (taskData != null) {
+        if (observer != null) {
             boolean pauseResult = transferUtility.pause(taskId);
-            Log.i(TAG, "uuid: " + uuid + ", id: " + taskId + ", 暂停结果: " + pauseResult);
-            result.success(taskId);
+            Log.d(TAG, "uuid: " + uuid + ", id: " + taskId + ", 暂停结果: " + pauseResult);
+            // taskData为null表示应用首次启动的暂停，直接返回表示暂停
+            result.success(taskData == null ? taskId : -1);
         } else {
             result.success(null);
         }
@@ -334,7 +281,7 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
 
     private void delete(MethodCall call, MethodChannel.Result result) {
         if (transferUtility == null) {
-            Log.i(TAG, "transferUtility 还没有初始化");
+            Log.d(TAG, "transferUtility 还没有初始化");
             result.success(null);
             return;
         }
@@ -344,29 +291,14 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
         try {
             taskId = Integer.parseInt(Objects.requireNonNull(call.argument("taskId")));
         } catch (Exception ex) {
-            Log.i(TAG, "不合法Number");
-        }
-
-        if (useCustomUpload) {
-            if (uploadTask != null && uploadTask.uuid.equals(uuid)) {
-                uploadTask = null;
-                result.success(taskId);
-                activity.runOnUiThread(() -> methodChannel.invokeMethod("upload_fail", new HashMap<String, Object>() {{
-                    put("uuid", uuid);
-                    put("error", "delete task");
-                    put("canceled", true);
-                }}));
-            } else {
-                result.success(null);
-            }
-            return;
+            Log.d(TAG, "不合法Number");
         }
 
         TaskData taskData = getTaskDataByUuid(uuid);
         TransferObserver observer = taskData != null ? taskData.getObserver() : transferUtility.getTransferById(taskId);
         if (observer != null) {
             boolean deleteResult = transferUtility.deleteTransferRecord(taskId);
-            Log.i(TAG, "uuid: " + uuid + ", id: " + taskId + ", 删除结果: " + deleteResult);
+            Log.d(TAG, "uuid: " + uuid + ", id: " + taskId + ", 删除结果: " + deleteResult);
             result.success(taskId);
             activity.runOnUiThread(() -> methodChannel.invokeMethod("upload_fail", new HashMap<String, Object>() {{
                 put("uuid", uuid);
@@ -400,22 +332,16 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
     class UploadListener implements TransferListener {
         @Override
         public void onStateChanged(int id, TransferState state) {
-            Log.i(TAG, "上传状态变化: id = " + id + ", 状态: " + state.name());
+            Log.d(TAG, "上传状态变化: id = " + id + ", 状态: " + state.name());
             TaskData taskData = getTaskDataById(id);
             HashMap<String, Object> result = new HashMap<String, Object>() {{
                 put("uuid", taskData != null ? taskData.getUuid() : "");
             }};
             String invokeMethod = null;
-            boolean resumeOp = taskData != null && taskData.getResumeOp();
             if (state == TransferState.PAUSED) {
-                if (!resumeOp) {
-                    invokeMethod = "upload_fail";
-                    result.put("error", state.name());
-                    result.put("canceled", true);
-                }
-                if (taskData != null) {
-                    taskData.setResumeOp(false);
-                }
+                invokeMethod = "upload_fail";
+                result.put("error", state.name());
+                result.put("canceled", true);
             } else if (state == TransferState.COMPLETED) {
                 invokeMethod = "upload_success";
                 result.put("result", "上传成功");
@@ -436,9 +362,9 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
                 state = observer.getState();
             }
 
-            Log.i(TAG, "上传进度id: " + id + ", " + bytesCurrent + "/" + bytesTotal + ", 状态: " + state);
+            Log.d(TAG, "上传进度id: " + id + ", " + bytesCurrent + "/" + bytesTotal + ", 状态: " + state);
             if (state != TransferState.IN_PROGRESS) {
-                Log.i(TAG, "上传有进度变化，但是状态不是IN_PROGRESS, 所以取消告知Flutter端");
+                Log.d(TAG, "上传有进度变化，但是状态不是IN_PROGRESS, 所以取消告知Flutter端");
                 return;
             }
             if (activity != null) {
@@ -453,7 +379,8 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
 
         @Override
         public void onError(int id, Exception ex) {
-            Log.i(TAG, "上传出错了: " + ex.getMessage() + ", 是否包括超时: " + Objects.requireNonNull(ex.getMessage()).contains("timeout"));
+            Log.d(TAG, "上传出错了: " + ex.getMessage() + ", 是否包括超时: " + Objects.requireNonNull(ex.getMessage()).contains("timeout"));
+
             if (activity != null) {
                 String finalInfo = ex.getMessage();
                 TaskData taskData = getTaskDataById(id);
@@ -463,13 +390,17 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
                     put("canceled", false);
                 }}));
             }
+            if (ex.getMessage() != null && ex.getMessage().contains("timeout")) {
+                Log.d(TAG, "超时请求，把任务清除了。应该很大概率是上次上传Multipart不正常关闭导致无法再次上传");
+                transferUtility.deleteTransferRecord(id);
+                taskDataList.remove(getTaskDataById(id));
+            }
         }
     }
 
     static class TaskData {
         private final String uuid;
         private final TransferObserver observer;
-        private boolean resumeOp = false;
 
         TaskData(String uuid, TransferObserver observer) {
             this.uuid = uuid;
@@ -482,14 +413,6 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
 
         public TransferObserver getObserver() {
             return observer;
-        }
-
-        public boolean getResumeOp() {
-            return resumeOp;
-        }
-
-        public void setResumeOp(boolean resumeOp) {
-            this.resumeOp = resumeOp;
         }
 
         @Override

@@ -63,7 +63,7 @@ public class ApplicationDataCollector extends DataCollector {
             PackageInfo packageInfo = packageManager.getPackageInfo(context.getPackageName(), ALL_FLAGS_OFF);
             appVersion = packageInfo.versionName;
         } catch (NameNotFoundException e) {
-            Log.i(TAG, "Unable to get app version. Provided package name could not be found.");
+            Log.d(TAG, "Unable to get app version. Provided package name could not be found.");
         }
         return appVersion;
     }

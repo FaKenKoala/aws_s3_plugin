@@ -332,7 +332,6 @@ public class AmazonHttpClient {
 
         while (true) {
             ++requestCount;
-            android.util.Log.i("上传part", "请求次数: " + requestCount);
             awsRequestMetrics.setCounter(Field.RequestCount, requestCount);
             if (requestCount > 1) { // retry
                 request.setParameters(originalParameters);
@@ -378,7 +377,7 @@ public class AmazonHttpClient {
                     }
                 }
 
-                android.util.Log.i("上传part", "发送请求: " + request);
+                android.util.Log.d("上传part", "发送请求: " + request);
                 if (REQUEST_LOG.isDebugEnabled()) {
                     REQUEST_LOG.debug("Sending Request: " + request.toString());
                 }
@@ -394,7 +393,6 @@ public class AmazonHttpClient {
                     awsRequestMetrics.endEvent(Field.HttpRequestTime);
                 }
 
-                android.util.Log.i("上传part", "请求结果: " + httpResponse.getStatusCode());
                 if (isRequestSuccessful(httpResponse)) {
                     awsRequestMetrics.addProperty(Field.StatusCode, httpResponse.getStatusCode());
                     /*
@@ -466,11 +464,11 @@ public class AmazonHttpClient {
                         ace,
                         requestCount,
                         config.getRetryPolicy())) {
-                    android.util.Log.i("上传part", "不重试：" + ace);
+                    android.util.Log.d("上传part", "不重试：" + ace);
 
                     throw ace;
                 }
-                android.util.Log.i("上传part", "重试");
+                android.util.Log.d("上传part", "重试");
 
                 // Cache the retryable exception
                 retriedException = ace;
@@ -624,7 +622,7 @@ public class AmazonHttpClient {
             return false;
         }
 
-        android.util.Log.i("上传part", "retries: " + retries + ", maxErrorRetry: " + maxErrorRetry);
+        android.util.Log.d("上传part", "retries: " + retries + ", maxErrorRetry: " + maxErrorRetry);
 
 
         // Pass all the context information to the RetryCondition and let it
@@ -746,7 +744,7 @@ public class AmazonHttpClient {
                         + "). Response Code: " + status
                         + ", Response Text: " + response.getStatusText()
                         + ", Response Headers: " + response.getHeaders();
-                android.util.Log.i("上传part", "错误1: " + errorMessage);
+                android.util.Log.d("上传part", "错误1: " + errorMessage);
                 throw new AmazonClientException(errorMessage, e);
             }
         }
@@ -754,7 +752,7 @@ public class AmazonHttpClient {
         exception.setStatusCode(status);
         exception.setServiceName(request.getServiceName());
         exception.fillInStackTrace();
-        android.util.Log.i("上传part", "错误2: " + exception.toString());
+        android.util.Log.d("上传part", "错误2: " + exception.toString());
 
         return exception;
     }

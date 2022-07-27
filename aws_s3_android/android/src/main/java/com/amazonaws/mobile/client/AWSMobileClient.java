@@ -1059,11 +1059,11 @@ public final class AWSMobileClient implements AWSCredentialsProvider {
                             SignInManager.getInstance(mContext).getPreviouslySignedInProvider();
                     if (previouslySignedInProvider != null && providerKey.equals(previouslySignedInProvider.getCognitoLoginKey())) {
                         refreshedToken = previouslySignedInProvider.getToken();
-                        Log.i(TAG, "Token was refreshed using drop-in UI internal mechanism");
+                        Log.d(TAG, "Token was refreshed using drop-in UI internal mechanism");
                     }
 
                     if (refreshedToken == null) {
-                        Log.i(TAG, "Token used for federation has become null");
+                        Log.d(TAG, "Token used for federation has become null");
                         return new UserStateDetails(UserState.SIGNED_OUT_FEDERATED_TOKENS_INVALID, details);
                     }
 
@@ -3370,7 +3370,7 @@ public final class AWSMobileClient implements AWSCredentialsProvider {
                 mOAuth2Client.authorize(authorizeUriBuilder.build(), new Callback<AuthorizeResponse>() {
                     @Override
                     public void onResult(AuthorizeResponse result) {
-                        Log.i(TAG, "onResult: OAuth2 callback occurred, exchanging code for token");
+                        Log.d(TAG, "onResult: OAuth2 callback occurred, exchanging code for token");
                         mOAuth2Client.requestTokens(tokensUri, new HashMap<String, String>(), tokensBody, result.getCode(), new Callback<OAuth2Tokens>() {
                             @Override
                             public void onResult(OAuth2Tokens result) {

@@ -1,12 +1,12 @@
 /**
  * Copyright 2015-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
  * A copy of the License is located at
- *
- *  http://aws.amazon.com/apache2.0
- *
+ * <p>
+ * http://aws.amazon.com/apache2.0
+ * <p>
  * or in the "license" file accompanying this file. This file is distributed
  * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
  * express or implied. See the License for the specific language governing
@@ -52,7 +52,7 @@ import java.util.concurrent.Future;
  * When an upload transfer is requested through TransferUtility,
  * a thread is created with UploadTask. Here a check is made for
  * single-part uploads (<= 5MB) and multi-part uploads (> 5MB).
- *
+ * <p>
  * For multi-part uploads, a thread is created per part (5MB)
  * and submitted to the thread pool.
  */
@@ -89,7 +89,7 @@ class UploadTask implements Callable<Boolean> {
     public Boolean call() throws Exception {
         try {
             if (TransferNetworkLossHandler.getInstance() != null &&
-                !TransferNetworkLossHandler.getInstance().isNetworkConnected()) {
+                    !TransferNetworkLossHandler.getInstance().isNetworkConnected()) {
                 LOGGER.info("Network not connected. Setting the state to WAITING_FOR_NETWORK.");
                 updater.updateState(upload.id, TransferState.WAITING_FOR_NETWORK);
                 return false;
@@ -171,16 +171,31 @@ class UploadTask implements Callable<Boolean> {
              * Future.get() will block the current thread until the method
              * returns.
              */
+            boolean pause = false;
             for (final UploadPartTaskMetadata task : uploadPartTasks.values()) {
                 // UploadPartTask returns false when it's interrupted by user
                 // and the state is set by caller
+                // 有暂停标志位，并且不是最后一个
+                if (upload.getPauseFlag()) {
+                    pause = true;
+                    android.util.Log.d("上传part", "需要暂停: " + task.uploadPartRequest.getPartNumber());
+                    task.uploadPartTask.cancel(true);
+                    continue;
+                }
+
                 final boolean b = task.uploadPartTask.get();
                 isSuccess &= b;
+
+            }
+            upload.setPauseFlag(false);
+            if (pause) {
+                android.util.Log.d("上传part", "暂停任务，抛出异常");
+                throw new RuntimeException("暂停任务");
             }
             if (!isSuccess) {
                 try {
                     if (TransferNetworkLossHandler.getInstance() != null &&
-                        !TransferNetworkLossHandler.getInstance().isNetworkConnected()) {
+                            !TransferNetworkLossHandler.getInstance().isNetworkConnected()) {
                         LOGGER.info("Network not connected. Setting the state to WAITING_FOR_NETWORK.");
                         updater.updateState(upload.id, TransferState.WAITING_FOR_NETWORK);
                         return false;
@@ -228,7 +243,7 @@ class UploadTask implements Callable<Boolean> {
 
             try {
                 if (TransferNetworkLossHandler.getInstance() != null &&
-                    !TransferNetworkLossHandler.getInstance().isNetworkConnected()) {
+                        !TransferNetworkLossHandler.getInstance().isNetworkConnected()) {
                     LOGGER.info("Network not connected. Setting the state to WAITING_FOR_NETWORK.");
                     updater.updateState(upload.id, TransferState.WAITING_FOR_NETWORK);
                     return false;
@@ -309,7 +324,7 @@ class UploadTask implements Callable<Boolean> {
             // Check if network is not connected, set the state to WAITING_FOR_NETWORK.
             try {
                 if (TransferNetworkLossHandler.getInstance() != null &&
-                    !TransferNetworkLossHandler.getInstance().isNetworkConnected()) {
+                        !TransferNetworkLossHandler.getInstance().isNetworkConnected()) {
                     LOGGER.info("Thread:[" + Thread.currentThread().getId() + "]: Network wasn't available.");
                     /*
                      * Network connection is being interrupted. Moving the TransferState to
@@ -343,14 +358,14 @@ class UploadTask implements Callable<Boolean> {
     /**
      * Completes the multi-part upload transfer.
      *
-     * @param mainUploadId  Main ID of the multi-part transfer
-     * @param bucket        Name of the S3 bucket
-     * @param key           Name of the object stored in the bucket
-     * @param multipartId   Multi-part identifier given by S3 that
-     *                      uniquely identifies this transfer
+     * @param mainUploadId Main ID of the multi-part transfer
+     * @param bucket       Name of the S3 bucket
+     * @param key          Name of the object stored in the bucket
+     * @param multipartId  Multi-part identifier given by S3 that
+     *                     uniquely identifies this transfer
      */
     private void completeMultiPartUpload(int mainUploadId, String bucket,
-            String key, String multipartId) throws AmazonClientException, AmazonServiceException {
+                                         String key, String multipartId) throws AmazonClientException, AmazonServiceException {
         final List<PartETag> partETags = dbUtil.queryPartETagsOfUpload(mainUploadId);
         final CompleteMultipartUploadRequest completeRequest = new CompleteMultipartUploadRequest(bucket,
                 key, multipartId, partETags);
@@ -385,7 +400,7 @@ class UploadTask implements Callable<Boolean> {
                 .withCannedACL(putObjectRequest.getCannedAcl())
                 .withObjectMetadata(putObjectRequest.getMetadata())
                 .withSSEAwsKeyManagementParams(
-                                putObjectRequest.getSSEAwsKeyManagementParams())
+                        putObjectRequest.getSSEAwsKeyManagementParams())
                 .withTagging(putObjectRequest.getTagging());
         TransferUtility
                 .appendMultipartTransferServiceUserAgentString(initiateMultipartUploadRequest);
@@ -479,6 +494,7 @@ class UploadTask implements Callable<Boolean> {
      * Convenience methods for Canned ACL.
      */
     private static final Map<String, CannedAccessControlList> CANNED_ACL_MAP;
+
     static {
         CANNED_ACL_MAP = new HashMap<String, CannedAccessControlList>();
         for (final CannedAccessControlList cannedAcl : CannedAccessControlList.values()) {
@@ -528,11 +544,11 @@ class UploadTask implements Callable<Boolean> {
             // exceeds the previously reported toal bytesTransferred
             // (prevTotalBytesTransferredOfAllParts).
             if (totalBytesTransferredOfAllParts > prevTotalBytesTransferredOfAllParts &&
-                totalBytesTransferredOfAllParts <= upload.bytesTotal) {
+                    totalBytesTransferredOfAllParts <= upload.bytesTotal) {
                 updater.updateProgress(UploadTask.this.upload.id,
-                    totalBytesTransferredOfAllParts,
-                    UploadTask.this.upload.bytesTotal,
-                    true);
+                        totalBytesTransferredOfAllParts,
+                        UploadTask.this.upload.bytesTotal,
+                        true);
                 prevTotalBytesTransferredOfAllParts = totalBytesTransferredOfAllParts;
             }
         }

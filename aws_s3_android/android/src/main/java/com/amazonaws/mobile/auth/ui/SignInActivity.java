@@ -51,7 +51,7 @@ public class SignInActivity extends AppCompatActivity {
          */
         @Override
         public void onSuccess(final IdentityProvider provider) {
-            Log.i(LOG_TAG, String.format(getString(R.string.sign_in_succeeded_message_format),
+            Log.d(LOG_TAG, String.format(getString(R.string.sign_in_succeeded_message_format),
                                          provider.getDisplayName()));
 
             // The sign-in manager is no longer needed once signed in.
@@ -70,7 +70,7 @@ public class SignInActivity extends AppCompatActivity {
          */
         @Override
         public void onCancel(final IdentityProvider provider) {
-            Log.i(LOG_TAG, String.format(getString(R.string.sign_in_canceled_message_format),
+            Log.d(LOG_TAG, String.format(getString(R.string.sign_in_canceled_message_format),
                                          provider.getDisplayName()));
             signInManager.getResultHandler()
                 .onIntermediateProviderCancel(SignInActivity.this, provider);

@@ -66,7 +66,6 @@ public class UrlHttpClient implements HttpClient {
 
     @Override
     public HttpResponse execute(final HttpRequest request) throws IOException {
-        android.util.Log.i("上传part", "使用urlHttpClient执行请求");
         final URL url = request.getUri().toURL();
         final HttpURLConnection connection = (HttpURLConnection) url.openConnection();
         final CurlBuilder curlBuilder = config.isCurlLogging()
@@ -75,7 +74,6 @@ public class UrlHttpClient implements HttpClient {
         configureConnection(request, connection);
         applyHeadersAndMethod(request, connection, curlBuilder);
         writeContentToConnection(request, connection, curlBuilder);
-        android.util.Log.i("上传part", "connectTimeout: " + connection.getConnectTimeout() + ", readTimeout: " + connection.getReadTimeout());
 
         if (curlBuilder != null) {
             if (curlBuilder.isValid()) {
@@ -94,7 +92,7 @@ public class UrlHttpClient implements HttpClient {
         // connection.setDoOutput(true);
         final String statusText = connection.getResponseMessage();
         final int statusCode = connection.getResponseCode();
-        android.util.Log.i("上传part", "urlHttpClient结果: " + statusText + ", 响应码: " + statusCode);
+        android.util.Log.d("上传part", "urlHttpClient结果: " + statusText + ", 响应码: " + statusCode);
         InputStream content = connection.getErrorStream();
         if (content == null) {
             // HEAD method doesn't have a body
