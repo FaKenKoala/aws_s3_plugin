@@ -156,8 +156,7 @@ public class TransferUtilityOptions implements Serializable {
      * @return 2 * (Number of available processors + 1)
      */
     static int getDefaultThreadPoolSize() {
-//        return 2 * (Runtime.getRuntime().availableProcessors() + 1);
-        return 1;
+        return 2 * (Runtime.getRuntime().availableProcessors() + 1);
     }
 
     /**

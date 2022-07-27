@@ -3730,6 +3730,8 @@ public class AmazonS3Client extends AmazonWebServiceClient implements AmazonS3 {
     @Override
     public UploadPartResult uploadPart(UploadPartRequest uploadPartRequest)
             throws AmazonClientException, AmazonServiceException {
+        android.util.Log.i("上传part", "");
+        android.util.Log.i("上传part", "partNumber: " + uploadPartRequest.getPartNumber());
         assertParameterNotNull(uploadPartRequest,
                 "The request parameter must be specified when uploading a part");
 

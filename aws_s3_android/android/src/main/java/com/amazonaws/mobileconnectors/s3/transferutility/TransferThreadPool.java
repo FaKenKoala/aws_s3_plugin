@@ -21,6 +21,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Logger;
 
 import com.amazonaws.logging.Log;
 import com.amazonaws.logging.LogFactory;
@@ -34,7 +35,6 @@ class TransferThreadPool {
 
     static synchronized void init(final int transferThreadPoolSize) {
         LOGGER.debug("Initializing the thread pool of size: " + transferThreadPoolSize);
-
         final int poolSize = Math.max((int) (Math.ceil((double) transferThreadPoolSize / 2)), 1);
 
         if (executorMainTask == null) {

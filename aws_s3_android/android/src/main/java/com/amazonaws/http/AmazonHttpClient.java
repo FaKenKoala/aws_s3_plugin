@@ -87,10 +87,14 @@ public class AmazonHttpClient {
      */
     static final Log log = LogFactory.getLog(AmazonHttpClient.class);
 
-    /** Internal client for sending HTTP requests */
+    /**
+     * Internal client for sending HTTP requests
+     */
     final HttpClient httpClient;
 
-    /** Client configuration options, such as proxy settings, max retries, etc. */
+    /**
+     * Client configuration options, such as proxy settings, max retries, etc.
+     */
     final ClientConfiguration config;
 
     /**
@@ -109,7 +113,7 @@ public class AmazonHttpClient {
      * options (ex: max retry attempts, proxy settings, etc).
      *
      * @param config Configuration options specifying how this client will
-     *            communicate with AWS (ex: proxy settings, retry count, etc.).
+     *               communicate with AWS (ex: proxy settings, retry count, etc.).
      */
     public AmazonHttpClient(ClientConfiguration config) {
         this(config, new UrlHttpClient(config));
@@ -120,15 +124,15 @@ public class AmazonHttpClient {
      * options (ex: max retry attempts, proxy settings, etc), and request metric
      * collector.
      *
-     * @param config Configuration options specifying how this client will
-     *            communicate with AWS (ex: proxy settings, retry count, etc.).
+     * @param config                 Configuration options specifying how this client will
+     *                               communicate with AWS (ex: proxy settings, retry count, etc.).
      * @param requestMetricCollector client specific request metric collector,
-     *            which takes precedence over the one at the AWS SDK level; or
-     *            null if there is none.
+     *                               which takes precedence over the one at the AWS SDK level; or
+     *                               null if there is none.
      */
     @Deprecated
     public AmazonHttpClient(ClientConfiguration config,
-            RequestMetricCollector requestMetricCollector) {
+                            RequestMetricCollector requestMetricCollector) {
         this(config, new UrlHttpClient(config), requestMetricCollector);
     }
 
@@ -137,8 +141,8 @@ public class AmazonHttpClient {
      * options (ex: max retry attempts, proxy settings, etc), and request metric
      * collector.
      *
-     * @param config Configuration options specifying how this client will
-     *            communicate with AWS (ex: proxy settings, retry count, etc.).
+     * @param config     Configuration options specifying how this client will
+     *                   communicate with AWS (ex: proxy settings, retry count, etc.).
      * @param httpClient client specific HttpClient
      */
     public AmazonHttpClient(ClientConfiguration config, HttpClient httpClient) {
@@ -152,16 +156,16 @@ public class AmazonHttpClient {
      * options (ex: max retry attempts, proxy settings, etc), and request metric
      * collector.
      *
-     * @param config Configuration options specifying how this client will
-     *            communicate with AWS (ex: proxy settings, retry count, etc.).
-     * @param httpClient client specific HttpClient
+     * @param config                 Configuration options specifying how this client will
+     *                               communicate with AWS (ex: proxy settings, retry count, etc.).
+     * @param httpClient             client specific HttpClient
      * @param requestMetricCollector client specific request metric collector,
-     *            which takes precedence over the one at the AWS SDK level; or
-     *            null if there is none.
+     *                               which takes precedence over the one at the AWS SDK level; or
+     *                               null if there is none.
      */
     @Deprecated
     public AmazonHttpClient(ClientConfiguration config, HttpClient httpClient,
-            RequestMetricCollector requestMetricCollector) {
+                            RequestMetricCollector requestMetricCollector) {
         this.config = config;
         this.httpClient = httpClient;
         this.requestMetricCollector = requestMetricCollector;
@@ -175,12 +179,12 @@ public class AmazonHttpClient {
      * support staff when services aren't acting as expected.
      *
      * @param request A previously executed AmazonWebServiceRequest object,
-     *            whose response metadata is desired.
+     *                whose response metadata is desired.
      * @return The response metadata for the specified request, otherwise null
-     *         if there is no response metadata available for the request.
+     * if there is no response metadata available for the request.
      * @deprecated ResponseMetadata cache can hold up to 50 requests and
-     *             responses in memory and will cause memory issue. This method
-     *             now always returns null.
+     * responses in memory and will cause memory issue. This method
+     * now always returns null.
      */
     @Deprecated
     public ResponseMetadata getResponseMetadataForRequest(AmazonWebServiceRequest request) {
@@ -190,20 +194,20 @@ public class AmazonHttpClient {
     /**
      * Executes the request and returns the result.
      *
-     * @param request The AmazonWebServices request to send to the remote server
-     * @param responseHandler A response handler to accept a successful response
-     *            from the remote server
+     * @param request              The AmazonWebServices request to send to the remote server
+     * @param responseHandler      A response handler to accept a successful response
+     *                             from the remote server
      * @param errorResponseHandler A response handler to accept an unsuccessful
-     *            response from the remote server
-     * @param executionContext Additional information about the context of this
-     *            web service call
-     * @param <T> the response type.
+     *                             response from the remote server
+     * @param executionContext     Additional information about the context of this
+     *                             web service call
+     * @param <T>                  the response type.
      * @return the result of the request.
      */
     public <T> Response<T> execute(Request<?> request,
-            HttpResponseHandler<AmazonWebServiceResponse<T>> responseHandler,
-            HttpResponseHandler<AmazonServiceException> errorResponseHandler,
-            ExecutionContext executionContext) {
+                                   HttpResponseHandler<AmazonWebServiceResponse<T>> responseHandler,
+                                   HttpResponseHandler<AmazonServiceException> errorResponseHandler,
+                                   ExecutionContext executionContext) {
         // Prepend host prefix if specified in the request.
         if (request.getHostPrefix() != null) {
             try {
@@ -238,23 +242,23 @@ public class AmazonHttpClient {
     }
 
     void afterError(Request<?> request, Response<?> response,
-            List<RequestHandler2> requestHandler2s, AmazonClientException e) {
+                    List<RequestHandler2> requestHandler2s, AmazonClientException e) {
         for (final RequestHandler2 handler2 : requestHandler2s) {
             handler2.afterError(request, response, e);
         }
     }
 
     <T> void afterResponse(Request<?> request,
-            List<RequestHandler2> requestHandler2s,
-            Response<T> response,
-            TimingInfo timingInfo) {
+                           List<RequestHandler2> requestHandler2s,
+                           Response<T> response,
+                           TimingInfo timingInfo) {
         for (final RequestHandler2 handler2 : requestHandler2s) {
             handler2.afterResponse(request, response);
         }
     }
 
     List<RequestHandler2> requestHandler2s(Request<?> request,
-            ExecutionContext executionContext) {
+                                           ExecutionContext executionContext) {
         final List<RequestHandler2> requestHandler2s = executionContext
                 .getRequestHandler2s();
         if (requestHandler2s == null) {
@@ -278,13 +282,13 @@ public class AmazonHttpClient {
      * Internal method to execute the HTTP method given.
      *
      * @see AmazonHttpClient#execute(Request, HttpResponseHandler,
-     *      HttpResponseHandler, ExecutionContext)
+     * HttpResponseHandler, ExecutionContext)
      */
     @SuppressWarnings("checkstyle:methodlength")
     <T> Response<T> executeHelper(Request<?> request,
-            HttpResponseHandler<AmazonWebServiceResponse<T>> responseHandler,
-            HttpResponseHandler<AmazonServiceException> errorResponseHandler,
-            ExecutionContext executionContext) {
+                                  HttpResponseHandler<AmazonWebServiceResponse<T>> responseHandler,
+                                  HttpResponseHandler<AmazonServiceException> errorResponseHandler,
+                                  ExecutionContext executionContext) {
         /*
          * Depending on which response handler we end up choosing to handle the
          * HTTP response, it might require us to leave the underlying HTTP
@@ -328,6 +332,7 @@ public class AmazonHttpClient {
 
         while (true) {
             ++requestCount;
+            android.util.Log.i("上传part", "请求次数: " + requestCount);
             awsRequestMetrics.setCounter(Field.RequestCount, requestCount);
             if (requestCount > 1) { // retry
                 request.setParameters(originalParameters);
@@ -373,6 +378,7 @@ public class AmazonHttpClient {
                     }
                 }
 
+                android.util.Log.i("上传part", "发送请求: " + request);
                 if (REQUEST_LOG.isDebugEnabled()) {
                     REQUEST_LOG.debug("Sending Request: " + request.toString());
                 }
@@ -388,6 +394,7 @@ public class AmazonHttpClient {
                     awsRequestMetrics.endEvent(Field.HttpRequestTime);
                 }
 
+                android.util.Log.i("上传part", "请求结果: " + httpResponse.getStatusCode());
                 if (isRequestSuccessful(httpResponse)) {
                     awsRequestMetrics.addProperty(Field.StatusCode, httpResponse.getStatusCode());
                     /*
@@ -459,8 +466,11 @@ public class AmazonHttpClient {
                         ace,
                         requestCount,
                         config.getRetryPolicy())) {
+                    android.util.Log.i("上传part", "不重试：" + ace);
+
                     throw ace;
                 }
+                android.util.Log.i("上传part", "重试");
 
                 // Cache the retryable exception
                 retriedException = ace;
@@ -506,8 +516,8 @@ public class AmazonHttpClient {
      * error as the cause (not an error about being unable to reset the stream).
      *
      * @param request The request being executed that failed and needs to be
-     *            reset.
-     * @param cause The original error that caused the request to fail.
+     *                reset.
+     * @param cause   The original error that caused the request to fail.
      * @throws AmazonClientException If the request can't be reset.
      */
     void resetRequestAfterError(Request<?> request, Exception cause) {
@@ -578,17 +588,17 @@ public class AmazonHttpClient {
      * Returns true if a failed request should be retried.
      *
      * @param originalRequest The original service request that is being
-     *            executed.
-     * @param exception The client/service exception from the failed request.
-     * @param requestCount The number of times the current request has been
-     *            attempted.
+     *                        executed.
+     * @param exception       The client/service exception from the failed request.
+     * @param requestCount    The number of times the current request has been
+     *                        attempted.
      * @return True if the failed request should be retried.
      */
     private boolean shouldRetry(AmazonWebServiceRequest originalRequest,
-            InputStream inputStream,
-            AmazonClientException exception,
-            int requestCount,
-            RetryPolicy retryPolicy) {
+                                InputStream inputStream,
+                                AmazonClientException exception,
+                                int requestCount,
+                                RetryPolicy retryPolicy) {
         final int retries = requestCount - 1;
 
         int maxErrorRetry = config.getMaxErrorRetry();
@@ -614,6 +624,9 @@ public class AmazonHttpClient {
             return false;
         }
 
+        android.util.Log.i("上传part", "retries: " + retries + ", maxErrorRetry: " + maxErrorRetry);
+
+
         // Pass all the context information to the RetryCondition and let it
         // decide whether it should be retried.
         return retryPolicy.getRetryCondition().shouldRetry(originalRequest,
@@ -637,22 +650,22 @@ public class AmazonHttpClient {
      * Handles a successful response from a service call by unmarshalling the
      * results using the specified response handler.
      *
-     * @param <T> The type of object expected in the response.
-     * @param request The original request that generated the response being
-     *            handled.
-     * @param responseHandler The response unmarshaller used to interpret the
-     *            contents of the response.
+     * @param <T>              The type of object expected in the response.
+     * @param request          The original request that generated the response being
+     *                         handled.
+     * @param responseHandler  The response unmarshaller used to interpret the
+     *                         contents of the response.
      * @param executionContext Extra state information about the request
-     *            currently being executed.
+     *                         currently being executed.
      * @return The contents of the response, unmarshalled using the specified
-     *         response handler.
+     * response handler.
      * @throws IOException If any problems were encountered reading the response
-     *             contents from the HTTP method object.
+     *                     contents from the HTTP method object.
      */
     <T> T handleResponse(Request<?> request,
-            HttpResponseHandler<AmazonWebServiceResponse<T>> responseHandler,
-            HttpResponse response,
-            ExecutionContext executionContext) throws IOException {
+                         HttpResponseHandler<AmazonWebServiceResponse<T>> responseHandler,
+                         HttpResponse response,
+                         ExecutionContext executionContext) throws IOException {
         try {
             final AWSRequestMetrics awsRequestMetrics = executionContext.getAwsRequestMetrics();
             AmazonWebServiceResponse<? extends T> awsResponse;
@@ -694,16 +707,16 @@ public class AmazonHttpClient {
      * error response into the most specific exception type possible, and
      * throwing the exception.
      *
-     * @param request The request that generated the error response being
-     *            handled.
+     * @param request              The request that generated the error response being
+     *                             handled.
      * @param errorResponseHandler The response handler responsible for
-     *            unmarshalling the error response.
+     *                             unmarshalling the error response.
      * @throws IOException If any problems are encountering reading the error
-     *             response.
+     *                     response.
      */
     AmazonServiceException handleErrorResponse(Request<?> request,
-            HttpResponseHandler<AmazonServiceException> errorResponseHandler,
-            HttpResponse response) throws IOException {
+                                               HttpResponseHandler<AmazonServiceException> errorResponseHandler,
+                                               HttpResponse response) throws IOException {
         final int status = response.getStatusCode();
 
         AmazonServiceException exception = null;
@@ -733,6 +746,7 @@ public class AmazonHttpClient {
                         + "). Response Code: " + status
                         + ", Response Text: " + response.getStatusText()
                         + ", Response Headers: " + response.getHeaders();
+                android.util.Log.i("上传part", "错误1: " + errorMessage);
                 throw new AmazonClientException(errorMessage, e);
             }
         }
@@ -740,6 +754,8 @@ public class AmazonHttpClient {
         exception.setStatusCode(status);
         exception.setServiceName(request.getServiceName());
         exception.fillInStackTrace();
+        android.util.Log.i("上传part", "错误2: " + exception.toString());
+
         return exception;
     }
 
@@ -747,18 +763,18 @@ public class AmazonHttpClient {
      * Sleep for a period of time on failed request to avoid flooding a service
      * with retries.
      *
-     * @param originalRequest The original service request that is being
-     *            executed.
+     * @param originalRequest   The original service request that is being
+     *                          executed.
      * @param previousException Exception information for the previous attempt,
-     *            if any.
-     * @param requestCount current request count (including the next attempt
-     *            after the delay)
-     * @param retryPolicy The retry policy configured in this http client.
+     *                          if any.
+     * @param requestCount      current request count (including the next attempt
+     *                          after the delay)
+     * @param retryPolicy       The retry policy configured in this http client.
      */
     private long pauseBeforeNextRetry(AmazonWebServiceRequest originalRequest,
-            AmazonClientException previousException,
-            int requestCount,
-            RetryPolicy retryPolicy) {
+                                      AmazonClientException previousException,
+                                      int requestCount,
+                                      RetryPolicy retryPolicy) {
         final int retries = requestCount // including next attempt
                 - 1 // number of attempted requests
                 - 1; // number of attempted retries
@@ -821,7 +837,7 @@ public class AmazonHttpClient {
             }
         } catch (final RuntimeException e) {
             log.warn("Unable to parse clock skew offset from response: "
-                    + serverDateStr,
+                            + serverDateStr,
                     e);
             return 0;
         }

@@ -57,6 +57,7 @@ public class UrlHttpClient implements HttpClient {
 
     /**
      * Constructor.
+     *
      * @param config the client config.
      */
     public UrlHttpClient(ClientConfiguration config) {
@@ -65,6 +66,7 @@ public class UrlHttpClient implements HttpClient {
 
     @Override
     public HttpResponse execute(final HttpRequest request) throws IOException {
+        android.util.Log.i("上传part", "使用urlHttpClient执行请求");
         final URL url = request.getUri().toURL();
         final HttpURLConnection connection = (HttpURLConnection) url.openConnection();
         final CurlBuilder curlBuilder = config.isCurlLogging()
@@ -73,6 +75,7 @@ public class UrlHttpClient implements HttpClient {
         configureConnection(request, connection);
         applyHeadersAndMethod(request, connection, curlBuilder);
         writeContentToConnection(request, connection, curlBuilder);
+        android.util.Log.i("上传part", "connectTimeout: " + connection.getConnectTimeout() + ", readTimeout: " + connection.getReadTimeout());
 
         if (curlBuilder != null) {
             if (curlBuilder.isValid()) {
@@ -91,6 +94,7 @@ public class UrlHttpClient implements HttpClient {
         // connection.setDoOutput(true);
         final String statusText = connection.getResponseMessage();
         final int statusCode = connection.getResponseCode();
+        android.util.Log.i("上传part", "urlHttpClient结果: " + statusText + ", 响应码: " + statusCode);
         InputStream content = connection.getErrorStream();
         if (content == null) {
             // HEAD method doesn't have a body
@@ -133,7 +137,7 @@ public class UrlHttpClient implements HttpClient {
      * Needed to pass UrlHttpClientTest.
      *
      * @see #writeContentToConnection(HttpRequest, HttpURLConnection,
-     *      CurlBuilder)
+     * CurlBuilder)
      */
     void writeContentToConnection(HttpRequest request, HttpURLConnection connection)
             throws IOException {
@@ -149,7 +153,7 @@ public class UrlHttpClient implements HttpClient {
      * @throws IOException
      */
     void writeContentToConnection(final HttpRequest request, final HttpURLConnection connection,
-            final CurlBuilder curlBuilder) throws IOException {
+                                  final CurlBuilder curlBuilder) throws IOException {
         // Note: if DoOutput is set to true and method is GET, HttpUrlConnection
         // will silently change the method to POST.
         if (request.getContent() != null && request.getContentLength() >= 0) {
@@ -184,13 +188,13 @@ public class UrlHttpClient implements HttpClient {
      * @see #applyHeadersAndMethod(HttpRequest, HttpURLConnection, CurlBuilder)
      */
     HttpURLConnection applyHeadersAndMethod(final HttpRequest request,
-            final HttpURLConnection connection) throws ProtocolException {
+                                            final HttpURLConnection connection) throws ProtocolException {
         return applyHeadersAndMethod(request, connection, null /* curlBuilder */);
     }
 
     @SuppressWarnings("checkstyle:emptyblock")
     HttpURLConnection applyHeadersAndMethod(final HttpRequest request,
-            final HttpURLConnection connection, final CurlBuilder curlBuilder)
+                                            final HttpURLConnection connection, final CurlBuilder curlBuilder)
             throws ProtocolException {
         // add headers
         if (request.getHeaders() != null && !request.getHeaders().isEmpty()) {
@@ -238,7 +242,7 @@ public class UrlHttpClient implements HttpClient {
     }
 
     private void write(InputStream is, OutputStream os, CurlBuilder curlBuilder,
-            ByteBuffer curlBuffer) throws IOException {
+                       ByteBuffer curlBuffer) throws IOException {
         final byte[] buf = new byte[DEFAULT_BUFFER_SIZE * BUFFER_SIZE_MULTIPLIER];
         int len;
         while ((len = is.read(buf)) != -1) {
@@ -287,7 +291,7 @@ public class UrlHttpClient implements HttpClient {
 
     private void enableCustomTrustManager(HttpsURLConnection connection) {
         if (sc == null) {
-            final TrustManager[] customTrustManagers = new TrustManager[] {
+            final TrustManager[] customTrustManagers = new TrustManager[]{
                     config.getTrustManager()
             };
             try {
@@ -359,17 +363,25 @@ public class UrlHttpClient implements HttpClient {
      */
     protected final class CurlBuilder {
 
-        /** The {@link URL} of the operation. */
+        /**
+         * The {@link URL} of the operation.
+         */
         private final URL url;
-        /** The method to execute on the given url. */
+        /**
+         * The method to execute on the given url.
+         */
         private String method = null;
         /**
          * A map of headers and their values to be sent with the curl request.
          */
         private final HashMap<String, String> headers = new HashMap<String, String>();
-        /** The content to send with the curl request. */
+        /**
+         * The content to send with the curl request.
+         */
         private String content = null;
-        /** Whether or not the content cannot be written to the curl command. */
+        /**
+         * Whether or not the content cannot be written to the curl command.
+         */
         private boolean contentOverflow = false;
 
         /**
@@ -432,7 +444,7 @@ public class UrlHttpClient implements HttpClient {
          * be invalid.
          *
          * @param contentOverflow Whether or not the content is too long to
-         *            print.
+         *                        print.
          * @return This object for chaining.
          */
         @SuppressWarnings("checkstyle:hiddenfield")

@@ -60,7 +60,6 @@ public class AuthCredentialsProvider implements AWSCredentialsProvider {
 
     @Override
     public void refresh() {
-        Log.d(TAG, "不同part的CredentialsProvider: " + this.hashCode());
         try {
             URL stsUrl = new URL(mAuthServerUrl);
             HttpURLConnection conn = (HttpURLConnection) stsUrl.openConnection();
@@ -74,7 +73,7 @@ public class AuthCredentialsProvider implements AWSCredentialsProvider {
             JSONObject jsonObjOut = new JSONObject(authData);
             String statusCode = jsonObjOut.getString("statusCode");
             if (statusCode.equals("OK")) {
-                Log.d(TAG, "刷新token成功: " + authData);
+//                Log.d(TAG, "刷新token成功: " + authData);
                 JSONObject jsonObj = jsonObjOut.getJSONObject("data");
                 String ak = jsonObj.getString("accessKey");
                 String sk = jsonObj.getString("secretKey");
