@@ -4,6 +4,8 @@ import static com.amazonaws.services.s3.internal.Constants.KB;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.content.IntentFilter;
+import android.net.ConnectivityManager;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
@@ -37,6 +39,7 @@ import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 
 import io.flutter.embedding.engine.plugins.FlutterPlugin;
@@ -77,8 +80,9 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
     @Override
     public void onAttachedToActivity(@NonNull ActivityPluginBinding binding) {
         activity = binding.getActivity();
-        activity.getApplicationContext().startService(new Intent(activity.getApplicationContext(), TransferService.class));
         TransferNetworkLossHandler.getInstance(activity.getApplicationContext());
+        activity.getApplicationContext().registerReceiver(TransferNetworkLossHandler.getInstance(activity.getApplicationContext()), new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION));
+        activity.getApplicationContext().startService(new Intent(activity.getApplicationContext(), TransferService.class));
     }
 
     @Override
@@ -189,49 +193,46 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
     }
 
     private void upload(MethodCall call, MethodChannel.Result result) {
+        String fileName = call.argument("fileName");
+        String filePath = call.argument("filePath");
+        String objectKey = call.argument("objectKey");
+        String uuid = call.argument("uuid");
+
+        int taskId = 0;
+
         try {
-            String fileName = call.argument("fileName");
-            String filePath = call.argument("filePath");
-            String objectKey = call.argument("objectKey");
-            String uuid = call.argument("uuid");
-
-            int taskId = 0;
-
-            try {
-                taskId = Integer.parseInt(Objects.requireNonNull(call.argument("taskId")));
-            } catch (Exception ex) {
-                Log.d(TAG, "不合法Number");
-            }
-            // 判断是否有id = taskId, 状态是暂停/取消/失败状态的任务
-            TaskData taskData = null;
-            for (TaskData task : taskDataList) {
-                if (task.getUuid().equals(uuid)) {
-                    taskData = task;
-                    break;
-                }
-            }
-
-            if (taskData == null) {
-                TransferObserver observer = transferUtility.getTransferById(taskId);
-                if (observer != null) {
-                    observer.setTransferListener(uploadListener);
-                    taskData = new TaskData(uuid, observer);
-                    taskDataList.add(taskData);
-                }
-            }
-
-            if (taskData != null) {
-                Log.d(TAG, "有旧上传，进行恢复或重试: uuid = " + uuid + ", id = " + taskId + ", 状态: " + taskData.getObserver().getState());
-                transferUtility.resume(taskId);
-                result.success(taskId);
-                return;
-            }
-
-            // 新上传
-            newUpload(fileName, filePath, objectKey, uuid, result);
-        } catch (Exception e) {
-            Log.d(TAG, "上传出错了: " + e.getMessage());
+            taskId = Integer.parseInt(Objects.requireNonNull(call.argument("taskId")));
+        } catch (Exception ex) {
+            Log.d(TAG, "不合法Number");
         }
+        // 判断是否有id = taskId, 状态是暂停/取消/失败状态的任务
+        TaskData taskData = null;
+        for (TaskData task : taskDataList) {
+            if (task.getUuid().equals(uuid)) {
+                taskData = task;
+                break;
+            }
+        }
+
+        if (taskData == null) {
+            TransferObserver observer = transferUtility.getTransferById(taskId);
+            if (observer != null) {
+                observer.setTransferListener(uploadListener);
+                taskData = new TaskData(uuid, observer);
+                taskDataList.add(taskData);
+            }
+        }
+
+        if (taskData != null) {
+            Log.d(TAG, "有旧上传，进行恢复或重试: uuid = " + uuid + ", id = " + taskId + ", 状态: " + taskData.getObserver().getState());
+            transferUtility.resume(taskId);
+            result.success(taskId);
+            return;
+        }
+
+        // 新上传
+        newUpload(fileName, filePath, objectKey, uuid, result);
+
     }
 
     private void newUpload(String fileName, String filePath, String objectKey, String uuid, MethodChannel.Result result) {
@@ -338,7 +339,15 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
                 put("uuid", taskData != null ? taskData.getUuid() : "");
             }};
             String invokeMethod = null;
-            if (state == TransferState.PAUSED) {
+            if (state == TransferState.WAITING_FOR_NETWORK && !TransferNetworkLossHandler.getInstance(activity).isNetworkConnected()) {
+                invokeMethod = "upload_fail";
+                result.put("error", "network off");
+                result.put("canceled", false);
+                Log.d(TAG, "没有网络，把任务删除了重新上传");
+                transferUtility.deleteTransferRecord(id);
+                taskDataList.remove(getTaskDataById(id));
+            }
+            else if (state == TransferState.PAUSED) {
                 invokeMethod = "upload_fail";
                 result.put("error", state.name());
                 result.put("canceled", true);
@@ -379,7 +388,13 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
 
         @Override
         public void onError(int id, Exception ex) {
-            Log.d(TAG, "上传出错了: " + ex.getMessage() + ", 是否包括超时: " + Objects.requireNonNull(ex.getMessage()).contains("timeout"));
+            boolean timeout = false;
+            if (ex.getMessage() != null) {
+                String errorMessage = ex.getMessage().toLowerCase();
+                timeout = errorMessage.contains("timeout") || errorMessage.contains("timed out");
+            }
+
+            Log.d(TAG, "上传出错了: " + ex.getMessage() + ", 是否超时: " + timeout);
 
             if (activity != null) {
                 String finalInfo = ex.getMessage();
@@ -390,11 +405,13 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
                     put("canceled", false);
                 }}));
             }
-            if (ex.getMessage() != null && ex.getMessage().contains("timeout")) {
+
+            if (timeout) {
                 Log.d(TAG, "超时请求，把任务清除了。应该很大概率是上次上传Multipart不正常关闭导致无法再次上传");
                 transferUtility.deleteTransferRecord(id);
                 taskDataList.remove(getTaskDataById(id));
             }
+
         }
     }
 

@@ -107,10 +107,12 @@ public class TransferNetworkLossHandler extends BroadcastReceiver {
     @Override
     public void onReceive(Context context, Intent intent) {
         if (ConnectivityManager.CONNECTIVITY_ACTION.equals(intent.getAction())) {
+
             LOGGER.info("Network connectivity changed detected.");
 
             final boolean networkConnected = isNetworkConnected();
             LOGGER.info("Network connected: " + networkConnected);
+            android.util.Log.d("上传part", "监听到网络状态变化: networkConnected = " + networkConnected);
 
             /**
              * Scanning the database for transfers and pausing/resuming them can be
@@ -134,7 +136,7 @@ public class TransferNetworkLossHandler extends BroadcastReceiver {
      *
      * @return true if network is connected, false otherwise.
      */
-    boolean isNetworkConnected() {
+    public boolean isNetworkConnected() {
         final NetworkInfo info = connManager.getActiveNetworkInfo();
         return info != null && info.isConnected();
     }
