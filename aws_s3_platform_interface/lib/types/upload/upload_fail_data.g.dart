@@ -11,6 +11,7 @@ UploadFailData _$UploadFailDataFromJson(Map<String, dynamic> json) =>
       uuid: json['uuid'] as String,
       error: json['error'],
       canceled: json['canceled'] as bool? ?? false,
+      delete: json['delete'] as bool? ?? false,
     );
 
 Map<String, dynamic> _$UploadFailDataToJson(UploadFailData instance) =>
@@ -18,4 +19,5 @@ Map<String, dynamic> _$UploadFailDataToJson(UploadFailData instance) =>
       'uuid': instance.uuid,
       'error': instance.error,
       'canceled': instance.canceled,
+      'delete': instance.delete,
     };

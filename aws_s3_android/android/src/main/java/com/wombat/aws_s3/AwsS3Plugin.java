@@ -305,6 +305,7 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
                 put("uuid", uuid);
                 put("error", "delete task");
                 put("canceled", true);
+                put("delete", true);
             }}));
         } else {
             result.success(null);
@@ -343,11 +344,11 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
                 invokeMethod = "upload_fail";
                 result.put("error", "network off");
                 result.put("canceled", false);
+                result.put("delete", true);
                 Log.d(TAG, "没有网络，把任务删除了重新上传");
                 transferUtility.deleteTransferRecord(id);
                 taskDataList.remove(getTaskDataById(id));
-            }
-            else if (state == TransferState.PAUSED) {
+            } else if (state == TransferState.PAUSED) {
                 invokeMethod = "upload_fail";
                 result.put("error", state.name());
                 result.put("canceled", true);
@@ -399,10 +400,12 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
             if (activity != null) {
                 String finalInfo = ex.getMessage();
                 TaskData taskData = getTaskDataById(id);
+                boolean finalTimeout = timeout;
                 activity.runOnUiThread(() -> methodChannel.invokeMethod("upload_fail", new HashMap<String, Object>() {{
                     put("uuid", taskData != null ? taskData.getUuid() : "");
                     put("error", finalInfo);
                     put("canceled", false);
+                    put("delete", finalTimeout);
                 }}));
             }
 
