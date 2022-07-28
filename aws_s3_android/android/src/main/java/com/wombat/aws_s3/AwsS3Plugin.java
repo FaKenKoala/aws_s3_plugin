@@ -3,9 +3,12 @@ package com.wombat.aws_s3;
 import static com.amazonaws.services.s3.internal.Constants.KB;
 
 import android.app.Activity;
+import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.net.ConnectivityManager;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
@@ -54,7 +57,7 @@ import io.flutter.plugin.common.MethodChannel.MethodCallHandler;
  */
 public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAware {
     private MethodChannel methodChannel;
-    private Activity activity;
+    private Context applicationContext;
     private TransferUtility transferUtility;
     public static String bucket;
     public static String TAG = "AwsS3Plugin";
@@ -79,15 +82,15 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
 
     @Override
     public void onAttachedToActivity(@NonNull ActivityPluginBinding binding) {
-        activity = binding.getActivity();
-        TransferNetworkLossHandler.getInstance(activity.getApplicationContext());
-        activity.getApplicationContext().registerReceiver(TransferNetworkLossHandler.getInstance(activity.getApplicationContext()), new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION));
-        activity.getApplicationContext().startService(new Intent(activity.getApplicationContext(), TransferService.class));
+        Activity activity = binding.getActivity();
+        applicationContext = activity.getApplicationContext();
+        TransferNetworkLossHandler.getInstance(applicationContext);
+        applicationContext.registerReceiver(TransferNetworkLossHandler.getInstance(applicationContext), new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION));
+        applicationContext.startService(new Intent(applicationContext, TransferService.class));
     }
 
     @Override
     public void onDetachedFromActivity() {
-        activity = null;
     }
 
     @Override
@@ -136,10 +139,8 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
             } catch (IOException e) {
                 e.printStackTrace();
             } finally {
-                if (activity != null) {
-                    String finalMd = md5;
-                    activity.runOnUiThread(() -> result.success(finalMd));
-                }
+                String finalMd = md5;
+                new Handler(Looper.getMainLooper()).post(() -> result.success(finalMd));
             }
         }).start();
     }
@@ -182,7 +183,7 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
         s3Client.setNotificationThreshold(356 * KB);
 
         transferUtility = TransferUtility.builder()
-                .context(activity.getApplicationContext())
+                .context(applicationContext)
                 .defaultBucket(bucket)
                 .s3Client(s3Client)
                 .transferUtilityOptions(new TransferUtilityOptions(1, TransferNetworkConnectionType.ANY))
@@ -301,7 +302,7 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
             boolean deleteResult = transferUtility.deleteTransferRecord(taskId);
             Log.d(TAG, "uuid: " + uuid + ", id: " + taskId + ", 删除结果: " + deleteResult);
             result.success(taskId);
-            activity.runOnUiThread(() -> methodChannel.invokeMethod("upload_fail", new HashMap<String, Object>() {{
+            new Handler(Looper.getMainLooper()).post(() -> methodChannel.invokeMethod("upload_fail", new HashMap<String, Object>() {{
                 put("uuid", uuid);
                 put("error", "delete task");
                 put("canceled", true);
@@ -340,7 +341,7 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
                 put("uuid", taskData != null ? taskData.getUuid() : "");
             }};
             String invokeMethod = null;
-            if (state == TransferState.WAITING_FOR_NETWORK && !TransferNetworkLossHandler.getInstance(activity).isNetworkConnected()) {
+            if (state == TransferState.WAITING_FOR_NETWORK && !TransferNetworkLossHandler.getInstance(applicationContext).isNetworkConnected()) {
                 invokeMethod = "upload_fail";
                 result.put("error", "network off");
                 result.put("canceled", false);
@@ -361,7 +362,7 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
             }
 
             String finalInvokeMethod = invokeMethod;
-            activity.runOnUiThread(() -> methodChannel.invokeMethod(finalInvokeMethod, result));
+            new Handler(Looper.getMainLooper()).post(() -> methodChannel.invokeMethod(finalInvokeMethod, result));
         }
 
         @Override
@@ -377,14 +378,15 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
                 Log.d(TAG, "上传有进度变化，但是状态不是IN_PROGRESS, 所以取消告知Flutter端");
                 return;
             }
-            if (activity != null) {
+            new Handler(Looper.getMainLooper()).post(() -> {
                 TaskData taskData = getTaskDataById(id);
-                activity.runOnUiThread(() -> methodChannel.invokeMethod("upload_progress", new HashMap<String, Object>() {{
+                methodChannel.invokeMethod("upload_progress", new HashMap<String, Object>() {{
                     put("uuid", taskData != null ? taskData.getUuid() : "");
                     put("totalBytesSent", bytesCurrent);
                     put("totalBytesExpectedToSend", bytesTotal);
-                }}));
-            }
+                }});
+            });
+
         }
 
         @Override
@@ -397,17 +399,15 @@ public class AwsS3Plugin implements FlutterPlugin, MethodCallHandler, ActivityAw
 
             Log.d(TAG, "上传出错了: " + ex.getMessage() + ", 是否超时: " + timeout);
 
-            if (activity != null) {
-                String finalInfo = ex.getMessage();
-                TaskData taskData = getTaskDataById(id);
-                boolean finalTimeout = timeout;
-                activity.runOnUiThread(() -> methodChannel.invokeMethod("upload_fail", new HashMap<String, Object>() {{
-                    put("uuid", taskData != null ? taskData.getUuid() : "");
-                    put("error", finalInfo);
-                    put("canceled", false);
-                    put("delete", finalTimeout);
-                }}));
-            }
+            String finalInfo = ex.getMessage();
+            TaskData taskData = getTaskDataById(id);
+            boolean finalTimeout = timeout;
+            new Handler(Looper.getMainLooper()).post(() -> methodChannel.invokeMethod("upload_fail", new HashMap<String, Object>() {{
+                put("uuid", taskData != null ? taskData.getUuid() : "");
+                put("error", finalInfo);
+                put("canceled", false);
+                put("delete", finalTimeout);
+            }}));
 
             if (timeout) {
                 Log.d(TAG, "超时请求，把任务清除了。应该很大概率是上次上传Multipart不正常关闭导致无法再次上传");
